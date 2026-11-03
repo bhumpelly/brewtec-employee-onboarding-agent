@@ -1,0 +1,781 @@
+{
+  "name": "4 - BrewTec daily onboarding scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 4. Daily scheduler\nEvery weekday at 07:30: sends due automatic emails, posts overdue tasks per team, and checks day-1 readiness as GREEN, AMBER or RED.\n\n**Setup**\n1. Fill **Config**. For the demo set readiness_days_ahead to the days until the test hire starts.\n2. Credentials: Postgres, Gmail.\n3. Use **Run now** to test, then Publish to switch on the schedule.\n4. Settings > Error workflow: 6 - BrewTec error alerts.\n\n**Health check**\nPosts to #brewtec-agent-dev-ops (discord_ops_webhook) only when someone must act: approvals waiting over 2 days, repeated AI failures, many hand-offs, an empty knowledge base, or a low weekly quality score.\n\n**Data retention**\nDaily clean-up: chats after 90 days (chat_retention_days), code checks and cached answers after 30 days, logs after 1 year, sent-back hires after 180 days.",
+        "height": 520,
+        "width": 460,
+        "color": 4
+      },
+      "id": "f20f1754-57e1-46ca-a85f-fb9c49710040",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "8ce6d3d6-a187-4486-a201-d043334f5a91",
+      "name": "Every weekday 07:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f148642b-b581-4e70-94f7-dfa5b5d5f863",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        560,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a49055b-ac2c-420b-a293-2fcdebfb8658",
+              "name": "readiness_days_ahead",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "4b2618ae-6cc2-4420-b598-b36ac3a29169",
+              "name": "hr_inbox",
+              "value": "YOURNAME+hr@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "fddcb67c-4742-414b-8f16-8f7daeb4180c",
+              "name": "pfb_form_url",
+              "value": "http://localhost:5678/webhook/brewtec/pfb",
+              "type": "string"
+            },
+            {
+              "id": "6e794e3f-606b-426d-89a0-3a492196e17a",
+              "name": "policies_url",
+              "value": "http://localhost:5678/webhook/brewtec#employees",
+              "type": "string"
+            },
+            {
+              "id": "a583bbc6-a149-4639-abff-373cbc94d87b",
+              "name": "training_url",
+              "value": "https://example.com/it-security-training",
+              "type": "string"
+            },
+            {
+              "id": "e80f8400-9212-421e-9a1e-b64bd422a514",
+              "name": "survey_url",
+              "value": "https://example.com/30-day-survey",
+              "type": "string"
+            },
+            {
+              "id": "837af277-eb00-49b3-8560-82d5be848ae8",
+              "name": "chat_url",
+              "value": "http://localhost:5678/webhook/brewtec/employees",
+              "type": "string"
+            },
+            {
+              "id": "2befd7c7-0e9e-4564-8ae7-e4d6975be947",
+              "name": "discord_it_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-IT",
+              "type": "string"
+            },
+            {
+              "id": "ae9376ac-59e9-4745-bab8-7ceb1115cbb4",
+              "name": "discord_facilities_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-FACILITIES",
+              "type": "string"
+            },
+            {
+              "id": "2cf38f49-bf23-47de-aa8a-7668161ed695",
+              "name": "discord_team_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-TEAM",
+              "type": "string"
+            },
+            {
+              "id": "42b1dd1e-e905-48d5-9b25-a893b178d433",
+              "name": "discord_hr_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-HR-HELPDESK",
+              "type": "string"
+            },
+            {
+              "id": "e83dfa3d-6811-460a-94b6-ded8d6906bd2",
+              "name": "discord_ops_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-AGENT-DEV-OPS",
+              "type": "string"
+            },
+            {
+              "id": "2870fe7a-4ced-410a-808d-c2ed880a04aa",
+              "name": "chat_retention_days",
+              "value": "90",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "583cf462-9eea-4be3-acf3-6c202300514a",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Due automatic e-mails. The Personalfragebogen stays open until the new hire submits it:\n-- a new personal single-use link is created for each mail, with a reminder every 3 days.\nselect t.id as task_id, t.task_key, t.title, t.link_key, t.due_date,\n       e.id as employee_id, e.first_name, e.private_email,\n       (t.last_sent_at is not null) as is_reminder,\n       case when t.task_key = 'pfb_form' then pfb_create_link(e.id, 14) end as pfb_token\nfrom onboarding_tasks t\njoin employees e on e.id = t.employee_id\nwhere t.auto and t.completed_at is null and t.due_date <= current_date\n  and e.status = 'approved' and t.task_key <> 'welcome_email'\n  and (t.last_sent_at is null\n       or (t.task_key = 'pfb_form' and t.last_sent_at < now() - interval '3 days'))\norder by t.due_date;",
+        "options": {}
+      },
+      "id": "e6e16855-1ad7-4406-a5bd-8d5a5eed3a74",
+      "name": "Due auto tasks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        128
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b4dca849-413b-4261-b0aa-26096fb44a8d",
+              "name": "pfb_form_url",
+              "value": "={{ $('Config').first().json.pfb_form_url }}",
+              "type": "string"
+            },
+            {
+              "id": "2ed696d4-2e1d-4c17-933f-ddec8a070b92",
+              "name": "policies_url",
+              "value": "={{ $('Config').first().json.policies_url }}",
+              "type": "string"
+            },
+            {
+              "id": "210ff627-e4be-43ff-beb6-bc0433241ea6",
+              "name": "training_url",
+              "value": "={{ $('Config').first().json.training_url }}",
+              "type": "string"
+            },
+            {
+              "id": "65bd4614-ca1d-4bf8-8c21-9bbcb078685b",
+              "name": "survey_url",
+              "value": "={{ $('Config').first().json.survey_url }}",
+              "type": "string"
+            },
+            {
+              "id": "fe53642b-33d8-43ef-af24-5a90553cb3c5",
+              "name": "chat_url",
+              "value": "={{ $('Config').first().json.chat_url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "9a32ad10-781b-47c4-984e-e9c913940699",
+      "name": "Collect auto task data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build auto task emails  (Workflow 4, JavaScript, Run Once for All Items)\n// One email per due automatic task. Items without a configured link are skipped.\n// The Employee Payroll Details Form gets a personal single-use link (pfb_token from the query) and is\n// repeated as a reminder every 3 days until the new hire has submitted it.\nconst TEXTS = {\n  pfb_form_url: ['Please fill in your Employee Payroll Details Form', 'please fill in the Employee Payroll Details Form before your first day. Payroll needs your bank, tax and social security details to pay you on time. The link below is personal, works once and for 14 days. You also need the personal code from your welcome e-mail. Enter these details only in this form, never by e-mail or chat.'],\n  policies_url: ['Company policies to read before you start', 'here are the BrewTec company policies. Please read them before your first day. The company assistant can answer questions about them.'],\n  training_url: ['Your IT security training', 'please complete the IT security training in your first week. It takes about 30 minutes.'],\n  survey_url: ['How was your first month at BrewTec?', 'you have been with us for a month. Please tell us in a short survey how your onboarding went. It takes about 3 minutes and helps the next new colleague.'],\n};\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  if (!j.task_id) continue;\n  const key = j.link_key || '';\n  let link = String(j[key] ?? '').trim();\n  if (!link) continue;\n  if (j.task_key === 'pfb_form') {\n    if (!j.pfb_token) continue;                       // already submitted, nothing to send\n    link += (link.includes('?') ? '&' : '?') + 't=' + encodeURIComponent(j.pfb_token);\n  }\n  let [subject, text] = TEXTS[key] || [j.title || 'BrewTec onboarding', 'here is your next onboarding step.'];\n  const reminder = j.is_reminder === true || j.is_reminder === 'true';\n  if (reminder) subject = 'Reminder: ' + subject;\n  out.push({ json: {\n    task_id: j.task_id,\n    employee_id: j.employee_id ?? null,\n    task_key: j.task_key ?? null,\n    private_email: j.private_email ?? null,\n    subject,\n    body: `Hello ${j.first_name || ''},\\n\\n${reminder ? 'a friendly reminder: ' : ''}${text}\\n\\n${link}\\n\\nQuestions? Ask the BrewTec company assistant: ${j.chat_url || ''}\\n\\nBest regards\\nPeople Ops, BrewTec GmbH`,\n  } });\n}\nreturn out;\n"
+      },
+      "id": "f631eead-0581-4f45-ad31-9630687bb841",
+      "name": "Build auto task emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.private_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e1b42571-9d25-47d0-ab6f-35a0e7b99f66",
+      "name": "Send auto task email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1712,
+        128
+      ],
+      "webhookId": "fcb16149-d1bb-477a-a6cd-9d4c6eb970d0",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Information mails are done once sent. The Personalfragebogen is done only when the\n-- new hire submits it (workflow 11), so here only the send time is recorded.\nwith u as (\n  update onboarding_tasks\n  set last_sent_at = now(),\n      completed_at = case when task_key = 'pfb_form' then completed_at else now() end,\n      completed_by = case when task_key = 'pfb_form' then completed_by else 'wf4' end\n  where id = $1::uuid and completed_at is null\n  returning employee_id, task_key\n)\ninsert into automation_log (employee_id, workflow, step, status, detail)\nselect employee_id, 'wf4', 'auto_task', 'sent', task_key from u\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Build auto task emails').item.json.task_id ] }}"
+        }
+      },
+      "id": "6e1a1fe5-12fb-49eb-a39e-077b91099998",
+      "name": "Mark auto task done",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1920,
+        128
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select t.owner_team, count(*)::int as overdue_count,\n       string_agg(format('- %s (%s %s., due %s)', t.title, e.first_name, left(e.last_name, 1),\n                  to_char(t.due_date, 'DD.MM.')), E'\\n' order by t.due_date) as lines\nfrom onboarding_tasks t\njoin employees e on e.id = t.employee_id\nwhere t.completed_at is null and not t.auto and t.due_date < current_date\n  and e.status = 'approved'\ngroup by t.owner_team;",
+        "options": {}
+      },
+      "id": "1906b03a-3831-4926-bee1-3a7fda323bc8",
+      "name": "Overdue tasks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        432
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "109f1425-e305-45d1-b141-9cc36a0fe488",
+              "name": "discord_it_webhook",
+              "value": "={{ $('Config').first().json.discord_it_webhook }}",
+              "type": "string"
+            },
+            {
+              "id": "7bca764c-1750-4c2f-b63c-16561fc55b42",
+              "name": "discord_facilities_webhook",
+              "value": "={{ $('Config').first().json.discord_facilities_webhook }}",
+              "type": "string"
+            },
+            {
+              "id": "d2cc7e4b-8a08-4c76-ade2-9456584634bd",
+              "name": "discord_team_webhook",
+              "value": "={{ $('Config').first().json.discord_team_webhook }}",
+              "type": "string"
+            },
+            {
+              "id": "59fbe0f4-2070-417f-8d9a-f863bd0547e8",
+              "name": "discord_hr_webhook",
+              "value": "={{ $('Config').first().json.discord_hr_webhook }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "ea865971-162c-4a51-a555-8d79ab3479ae",
+      "name": "Collect digest data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build overdue digests  (Workflow 4, JavaScript, Run Once for All Items)\n// One Discord post per team that has overdue manual tasks.\nconst TEAM = {\n  it: ['IT', 'discord_it_webhook'],\n  facilities: ['Facilities', 'discord_facilities_webhook'],\n  manager: ['Managers', 'discord_team_webhook'],\n  hr: ['People Ops', 'discord_hr_webhook'],\n  new_hire: ['People Ops (new hire tasks to follow up)', 'discord_hr_webhook'],\n};\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  if (!j.owner_team) continue;\n  const [label, hookKey] = TEAM[j.owner_team] || ['People Ops', 'discord_hr_webhook'];\n  const webhook = String(j[hookKey] ?? '').trim();\n  if (!webhook) continue;\n  let msg = `**Overdue onboarding tasks for ${label}: ${j.overdue_count ?? 0}**\\n${j.lines ?? ''}`;\n  if (msg.length > 1900) msg = msg.slice(0, 1897) + '...';\n  out.push({ json: { team: j.owner_team, webhook, message: msg } });\n}\nreturn out;\n"
+      },
+      "id": "c0f5969a-201f-4c61-ae82-5553dbc9311a",
+      "name": "Build overdue digests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.message }) }}",
+        "options": {}
+      },
+      "id": "3015f5d6-5e6a-443d-bc60-ccf356b7a73f",
+      "name": "Post overdue digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1712,
+        432
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select * from day1_readiness(current_date + $1::int);",
+        "options": {
+          "queryReplacement": "={{ [ $('Config').first().json.readiness_days_ahead ] }}"
+        }
+      },
+      "id": "6ea481e3-3c27-4d77-9b14-3c575fa89f5e",
+      "name": "Day-1 readiness",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        720
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "db58ebfd-b56e-45b0-a404-4f318d67d696",
+              "name": "target_date",
+              "value": "={{ $now.plus({ days: Number($('Config').first().json.readiness_days_ahead) }).toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "fa03668e-ac0a-4999-849c-cb79fa25508a",
+      "name": "Collect readiness data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build readiness report  (Workflow 4, JavaScript, Run Once for All Items)\n// Turns day1_readiness rows into a GREEN, AMBER or RED report for People Ops.\nconst rows = $input.all().map(i => i.json);\nconst target = rows[0]?.target_date ?? '';\nconst starters = rows.filter(r => r.employee_id);\n\nconst counts = { GREEN: 0, AMBER: 0, RED: 0 };\nconst lines = starters.map(r => {\n  const state = r.readiness || 'RED';\n  counts[state] = (counts[state] || 0) + 1;\n  return `${state}: ${r.first_name || ''} ${(r.last_name || ' ')[0]}., ${r.department || ''}, ${r.site || ''}. Missing: ${r.missing || 'nothing'}`;\n});\nconst summary = starters.length\n  ? `${starters.length} starter(s) on ${target}: ${counts.GREEN} GREEN, ${counts.AMBER} AMBER, ${counts.RED} RED`\n  : `No approved starters on ${target}.`;\n\nlet discord = '**Day-1 readiness check**\\n' + summary + (lines.length ? '\\n' + lines.join('\\n') : '');\nif (discord.length > 1900) discord = discord.slice(0, 1897) + '...';\nconst email = `Hello People Ops,\\n\\nDay-1 readiness for ${target}.\\n${summary}\\n\\n` +\n  (lines.length ? lines.join('\\n') + '\\n\\n' : '') +\n  'Open the onboarding_overview view in Supabase for all open and overdue tasks.\\n\\n' +\n  'This email was sent by the BrewTec onboarding agent daily scheduler.';\n\nreturn [{ json: {\n  discord_message: discord,\n  email_subject: `Onboarding daily summary, day-1 readiness for ${target}`,\n  email_body: email,\n  starters: starters.length,\n  red: counts.RED, amber: counts.AMBER, green: counts.GREEN,\n} }];\n"
+      },
+      "id": "f1cabe27-a388-412b-a3f3-b2ae6eadb77a",
+      "name": "Build readiness report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_hr_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.discord_message }) }}",
+        "options": {}
+      },
+      "id": "e2dfe2df-2e57-4773-a015-b85ab73b872c",
+      "name": "Post readiness to #hr-helpdesk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1712,
+        640
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Config').first().json.hr_inbox }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "cfc027c8-705d-4b67-9dd5-d6b12cb3fd59",
+      "name": "Email HR summary",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1712,
+        832
+      ],
+      "webhookId": "5f7b24df-1bf1-40e7-a4a9-df92cd1e37f0",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into automation_log (workflow, step, status, detail)\nvalues ('wf4', 'daily_run', 'ok', $1)\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Build readiness report').item.json.email_subject + ': ' + $('Build readiness report').item.json.starters + ' starter(s)' ] }}"
+        }
+      },
+      "id": "db1d84a8-74c6-455f-b88a-5c8d01d218ad",
+      "name": "Log scheduler run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1920,
+        832
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  (select count(*) from employees where status = 'pending_approval'\n     and created_at < now() - interval '2 days')::int as stale_approvals,\n  (select string_agg(first_name || ' ' || left(last_name, 1) || '.', ', ') from employees\n     where status = 'pending_approval' and created_at < now() - interval '2 days') as stale_names,\n  (select count(*) from automation_log where workflow = 'wf3' and step = 'ai_call'\n     and status = 'failed' and created_at > now() - interval '1 day')::int as ai_failures_24h,\n  (select count(*) from chat_messages where handoff and created_at > now() - interval '1 day'\n     and coalesce(session_id, '') not like 'qc-%')::int as handoffs_24h,\n  (select count(*) from handbook_documents)::int as kb_chunks,\n  (select round(100.0 * avg(passed::int)) from quality_checks\n     where run_at = (select max(run_at) from quality_checks)) as last_quality_score,\n  (select extract(day from now() - max(run_at))::int from quality_checks) as days_since_quality_check;",
+        "options": {}
+      },
+      "id": "f71afb0c-8320-4115-b7d1-e1ef1cabe3b0",
+      "name": "Health check",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        1024
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build health alert  (Workflow 4, JavaScript, Run Once for All Items)\n// Daily health check. Posts to #hr-helpdesk only when something needs a human.\n// Returns no item (nothing posted) on a healthy day.\nconst h = $input.first().json || {};\nconst n = v => Number(v || 0);\nconst issues = [];\n\nif (n(h.stale_approvals) > 0)\n  issues.push(`${n(h.stale_approvals)} hire(s) waiting more than 2 days for HR approval: ${h.stale_names}. Open the approval email or send it back.`);\nif (n(h.ai_failures_24h) >= 3)\n  issues.push(`The assistant could not reach Gemini ${n(h.ai_failures_24h)} times in 24 hours (rate limit or outage). Check the API quota.`);\nif (n(h.handoffs_24h) >= 5)\n  issues.push(`${n(h.handoffs_24h)} questions were handed off in 24 hours. Check #hr-helpdesk for missing policies and add them in Notion.`);\nif (n(h.kb_chunks) < 10)\n  issues.push(`The knowledge base holds only ${n(h.kb_chunks)} chunks. Run workflow 2 (Run ingestion).`);\nif (h.last_quality_score !== null && h.last_quality_score !== undefined && n(h.last_quality_score) < 80)\n  issues.push(`The last weekly quality check scored ${n(h.last_quality_score)}%, below the 80% pass mark. Review the failed questions.`);\nif (n(h.days_since_quality_check) > 8)\n  issues.push(`The weekly quality check has not run for ${n(h.days_since_quality_check)} days. Check that workflow 7 is published.`);\n\nif (!issues.length) return [];\nlet msg = '**Onboarding agent health check: action needed**\\n' + issues.map(i => '- ' + i).join('\\n');\nif (msg.length > 1900) msg = msg.slice(0, 1897) + '...';\nreturn [{ json: { message: msg, issue_count: issues.length } }];\n"
+      },
+      "id": "a2a4879d-2471-494c-aa65-5212eebf2e43",
+      "name": "Build health alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_ops_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.message }) }}",
+        "options": {}
+      },
+      "id": "ad719546-d853-4079-93cb-4ce85f54b123",
+      "name": "Post health alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1488,
+        1024
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Deletes chats after chat_retention_days, code checks and cached answers after 30 days,\n-- log and quality rows after 365 days, and sent-back or cancelled hires after 180 days.\nwith p as (select * from purge_expired_data($1::int))\ninsert into automation_log (workflow, step, status, detail)\nselect 'wf4', 'retention', 'ok', format('deleted %s chats, %s code checks, %s cached answers, '\n       '%s log rows, %s quality rows, %s closed hires, %s old form links', chats, code_checks,\n       cached_answers, logs, quality_rows, closed_hires, form_links)\nfrom p\nreturning detail;",
+        "options": {
+          "queryReplacement": "={{ [ $('Config').first().json.chat_retention_days ] }}"
+        }
+      },
+      "id": "796aabb3-cc35-4903-963b-c9ac488d379b",
+      "name": "Data retention",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        1264
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Data retention",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Health check",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Due auto tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Overdue tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Day-1 readiness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health check": {
+      "main": [
+        [
+          {
+            "node": "Build health alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build health alert": {
+      "main": [
+        [
+          {
+            "node": "Post health alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every weekday 07:30": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Due auto tasks": {
+      "main": [
+        [
+          {
+            "node": "Collect auto task data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect auto task data": {
+      "main": [
+        [
+          {
+            "node": "Build auto task emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build auto task emails": {
+      "main": [
+        [
+          {
+            "node": "Send auto task email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send auto task email": {
+      "main": [
+        [
+          {
+            "node": "Mark auto task done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Overdue tasks": {
+      "main": [
+        [
+          {
+            "node": "Collect digest data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect digest data": {
+      "main": [
+        [
+          {
+            "node": "Build overdue digests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build overdue digests": {
+      "main": [
+        [
+          {
+            "node": "Post overdue digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Day-1 readiness": {
+      "main": [
+        [
+          {
+            "node": "Collect readiness data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect readiness data": {
+      "main": [
+        [
+          {
+            "node": "Build readiness report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build readiness report": {
+      "main": [
+        [
+          {
+            "node": "Post readiness to #hr-helpdesk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email HR summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email HR summary": {
+      "main": [
+        [
+          {
+            "node": "Log scheduler run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": []
+}

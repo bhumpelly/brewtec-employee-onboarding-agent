@@ -1,0 +1,7 @@
+﻿test_id,category,kind,question,expected_start,source,facts,match,german,repeat,active,note
+NEW01,Fixed replies,fixed,hallo,Hallo! Ich beantworte,,,,,,true,"Greeting in German, no AI"
+NEW02,Knowledge base,answer,How do I request vacation?,,hr-leave,personio,,,,true,Answer must cite the leave policy and mention Personio
+NEW03,Knowledge base,german,Wie beantrage ich Urlaub?,,hr-leave,,,,,true,German answer with source
+NEW04,Hand-off,handoff,Can I bring my dog to the office?,,,,,,,true,"No document covers it, so People Ops takes over"
+NEW05,Personal code,contains,What do I still need to do?,,,,code,,,true,Asks for the personal code
+NEW06,Edge cases,any,???,,,,,,,true,Any normal reply without an error

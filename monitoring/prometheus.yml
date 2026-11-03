@@ -1,0 +1,8 @@
+# Prometheus collects the numbers that n8n publishes at /metrics every 15 seconds.
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: n8n
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['host.docker.internal:5678']

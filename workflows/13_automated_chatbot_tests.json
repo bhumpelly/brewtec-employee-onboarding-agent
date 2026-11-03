@@ -1,0 +1,360 @@
+{
+  "name": "13 - BrewTec automated chatbot tests",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 13. Automated chatbot tests\n\nUpload a test CSV, the workflow asks every question to the live assistant, checks each reply and e-mails an Excel workbook: a Summary sheet plus one sheet per category.\n\n**Setup (once)**\n1. Config: chat URL (same as workflow 7), #brewtec-agent-dev-ops webhook, e-mail address for the report.\n2. E-mail results: select the Gmail credential.\n3. Publish. Bookmark the form address from Upload test file (Production URL).\n\n**Run**: open the bookmarked form, choose the CSV, Submit. Results arrive by e-mail and in Discord after about 10 seconds per test.\n\n**CSV columns**: test_id, category, kind, question, expected_start, source, facts, match, german, repeat, active, note. Comma or semicolon, UTF-8. Kinds: fixed, answer, german, handoff, contains, any. Rows with a mistake are skipped and named in the report.\n\nDo not use the chatbot while a run is going: the tests share its rate limit.",
+        "height": 640,
+        "width": 440,
+        "color": 4
+      },
+      "id": "d722f763-fd1a-4fa3-8ee3-28a3429f8e18",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "BrewTec chatbot tests",
+        "formDescription": "Choose a test CSV file (for example chatbot_tests_core.csv). The results arrive by e-mail as an Excel workbook and in #brewtec-agent-dev-ops.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "tests",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".csv",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "path": "brewtec-chatbot-tests"
+        }
+      },
+      "id": "e59e203a-347c-44e0-a899-180eb4bed886",
+      "name": "Upload test file",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        192
+      ],
+      "webhookId": "831b5f04-33ce-459e-9b47-78433ac95cf8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8682b823-c7ef-421b-8733-ca807eaa25f4",
+              "name": "chat_url",
+              "value": "http://localhost:5678/webhook/1ddcdf13-f58a-479a-9200-66b56dd65b09/chat",
+              "type": "string"
+            },
+            {
+              "id": "e93e55f3-3a26-4df8-9af3-57c0548068e8",
+              "name": "discord_ops_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-AGENT-DEV-OPS",
+              "type": "string"
+            },
+            {
+              "id": "c8f5ef51-0185-4ccc-acdc-7eabe4503e2e",
+              "name": "report_email",
+              "value": "YOURNAME+brewtec@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "06740d78-acd4-4e68-b076-fde2ec088896",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        992,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "tests",
+        "options": {}
+      },
+      "id": "520085e5-0125-493c-b337-df523932e08b",
+      "name": "Read test file",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        832,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Test cases  (Workflow 13, JavaScript, Run Once for All Items)\n// Reads the uploaded test file (CSV, comma or semicolon, UTF-8, header row) and turns every row into a test.\n// Columns: test_id, category, kind, question, expected_start, source, facts, match, german, repeat, active, note, session\n// session (optional): rows with the same session value run in ONE chat, in file order, to test multi-turn chats.\n// Kinds:\n//   fixed    reply starts with expected_start (guard texts, no AI involved)\n//   answer   AI answer that cites a file whose name starts with source, optionally with one of the facts (separated by |)\n//   german   like answer, and the reply must be in German\n//   handoff  the assistant hands the question to People Ops instead of guessing\n//   contains reply matches the regular expression in match\n//   any      any normal reply without an error (robustness tests)\n// Sessions start with qc- so the assistant does not cache them and does not post hand-offs to Discord.\nconst KINDS = ['fixed', 'answer', 'german', 'handoff', 'contains', 'any'];\nconst run = String($execution.id);\nconst fileName = String($('Upload test file').first().json.tests?.filename || $('Upload test file').first().binary?.tests?.fileName || 'uploaded file');\n\nlet text = String($('Read test file').first().json.data ?? '');\ntext = text.replace(/^﻿/, '').replace(/\\r\\n?/g, '\\n');\nif (!text.trim()) throw new Error('The uploaded file is empty.');\n\n// Comma or semicolon (German Excel saves CSV with semicolons)\nconst headerLine = text.slice(0, text.indexOf('\\n') === -1 ? text.length : text.indexOf('\\n'));\nconst sep = (headerLine.match(/;/g) || []).length > (headerLine.match(/,/g) || []).length ? ';' : ',';\n\n// CSV parser with quotes, doubled quotes and line breaks inside quotes\nfunction parse(src) {\n  const rows = []; let row = []; let cell = ''; let quoted = false;\n  for (let i = 0; i < src.length; i++) {\n    const c = src[i];\n    if (quoted) {\n      if (c === '\"') { if (src[i + 1] === '\"') { cell += '\"'; i++; } else quoted = false; }\n      else cell += c;\n    } else if (c === '\"') quoted = true;\n    else if (c === sep) { row.push(cell); cell = ''; }\n    else if (c === '\\n') { row.push(cell); rows.push(row); row = []; cell = ''; }\n    else cell += c;\n  }\n  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }\n  return rows.filter(r => r.some(v => v.trim() !== ''));\n}\n\nconst rows = parse(text);\nif (rows.length < 2) throw new Error('The test file needs a header row and at least one test.');\nconst header = rows[0].map(h => h.trim().toLowerCase().replace(/\\s+/g, '_'));\nif (!header.includes('test_id') || !header.includes('kind') || !header.includes('question')) {\n  throw new Error('The test file needs at least the columns test_id, kind and question. Found: ' + header.join(', '));\n}\nconst yes = v => ['true', 'yes', 'ja', '1', 'x'].includes(String(v || '').trim().toLowerCase());\n\nconst tests = [];\nconst skipped = [];\nfor (const values of rows.slice(1)) {\n  const r = {};\n  header.forEach((h, i) => { r[h] = values[i] ?? ''; });\n  const id = String(r.test_id || '').trim();\n  if (!id) continue;\n  if (r.active !== undefined && String(r.active).trim() !== '' && !yes(r.active)) continue;\n  const kind = String(r.kind || '').trim().toLowerCase();\n  if (!KINDS.includes(kind)) { skipped.push(`${id}: unknown kind \"${r.kind}\"`); continue; }\n  if (kind === 'fixed' && !r.expected_start) { skipped.push(`${id}: fixed needs expected_start`); continue; }\n  if ((kind === 'answer' || kind === 'german') && !String(r.source || '').trim()) { skipped.push(`${id}: ${kind} needs source`); continue; }\n  if (kind === 'contains') {\n    if (!r.match) { skipped.push(`${id}: contains needs match`); continue; }\n    try { new RegExp(r.match, 'i'); } catch (e) { skipped.push(`${id}: match is not a valid pattern`); continue; }\n  }\n  const times = Math.min(Math.max(parseInt(r.repeat, 10) || 1, 1), 100);\n  const base = String(r.question ?? '');\n  const facts = String(r.facts || '').split('|').map(s => s.trim()).filter(Boolean);\n  tests.push({\n    id,\n    category: String(r.category || '').trim() || 'General',\n    question: base.trim() === '' ? '   ' : base.repeat(times),\n    kind,\n    start: String(r.expected_start || '').trim(),\n    source: String(r.source || '').trim(),\n    facts: facts.length ? facts : undefined,\n    match: String(r.match || ''),\n    german: yes(r.german) || kind === 'german',\n    note: String(r.note || '').trim(),\n    session: String(r.session || '').trim().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 30),\n  });\n}\nif (!tests.length) throw new Error('No runnable tests in the file.' + (skipped.length ? ' Skipped: ' + skipped.join('; ') : ''));\n\nreturn tests.map((t, i) => ({ json: { ...t, sessionId: t.session ? `qc-test-${run}-s-${t.session}` : `qc-test-${run}-${i + 1}`,\n  skipped: i === 0 ? skipped : [], file_name: i === 0 ? fileName : '' } }));\n"
+      },
+      "id": "dbde65e0-b481-46b5-8924-83c62ba8e969",
+      "name": "Test cases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.chat_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'sendMessage', sessionId: $json.sessionId, chatInput: $json.question }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 10000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "f73a310c-0d6a-49b1-94d1-a6d561608e81",
+      "name": "Ask the assistant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        192
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Check replies  (Workflow 13, JavaScript, Run Once for All Items)\n// Compares every reply with the expectation of its test. Replies are paired with tests by position.\n// Result per test: pass, fail, or retry (the assistant was busy or rate limited, run that test again).\nconst HANDOFF_START = 'i could not find a reliable answer';\nconst BUSY = /many colleagues are using the assistant|temporarily unavailable|you are sending questions very quickly|gerade nutzen viele|nicht verfügbar|sehr schnell viele fragen/i;\nconst GERMAN = /\\b(ich|du|sie|und|der|die|das|ist|nicht|bitte|nach|mit|für|über|eine?n?|werden|kannst|musst)\\b/i;\n\nconst tests = $('Test cases').all().map(i => i.json);\nconst runAt = $now.setZone('Europe/Berlin').toFormat('yyyy-MM-dd HH:mm');\nconst runId = String($execution.id);\nconst replies = $input.all().map(i => i.json);\n\nconst results = tests.map((t, i) => {\n  const r = replies[i] || {};\n  const reply = String(r.output ?? r.text ?? r.reply ?? '').trim();\n  const low = reply.toLowerCase();\n  const cites = [...reply.matchAll(/\\[([^\\]]+)\\]/g)].flatMap(m => m[1].split(/[,;]/).map(x => '[' + x.trim() + ']'));\n  const handoff = low.startsWith(HANDOFF_START);\n  let result = 'fail';\n  let detail = '';\n\n  if (!reply) {\n    detail = 'no reply (' + String((r.error && (r.error.message || r.error)) || 'empty response').slice(0, 120) + ')';\n  } else if (BUSY.test(reply) && t.kind !== 'fixed') {\n    result = 'retry';\n    detail = 'assistant busy or rate limited, run this test again';\n  } else if (t.kind === 'fixed') {\n    const ok = low.startsWith(t.start.toLowerCase());\n    result = ok ? 'pass' : 'fail';\n    detail = ok ? 'fixed reply as expected' : `expected a reply starting \"${t.start}\"`;\n  } else if (t.kind === 'handoff') {\n    result = handoff ? 'pass' : 'fail';\n    detail = handoff ? 'handed off, nothing invented' : 'answered although it should hand off';\n  } else if (t.kind === 'answer' || t.kind === 'german') {\n    const rightSource = cites.some(c => c.toLowerCase().startsWith('[' + t.source));\n    const factOk = !(t.facts && t.facts.length) || t.facts.some(f => low.includes(f.toLowerCase()));\n    const langOk = t.kind !== 'german' || GERMAN.test(reply);\n    if (handoff) detail = 'handed off although a document covers it';\n    else if (!rightSource) detail = `wrong or missing source, cited ${cites.join(' ') || 'none'}`;\n    else if (!factOk) detail = `right source, key fact missing (${t.facts.join(' or ')})`;\n    else if (!langOk) detail = 'right source, but the reply is not in German';\n    else { result = 'pass'; detail = 'right source' + (t.facts ? ' and key fact' : '') + (t.kind === 'german' ? ', in German' : ''); }\n  } else if (t.kind === 'contains') {\n    const ok = new RegExp(t.match, 'i').test(reply);\n    result = ok ? 'pass' : 'fail';\n    detail = ok ? (t.note || 'expected content found') : `expected: ${t.note || t.match}`;\n  } else {\n    const langOk = !t.german || GERMAN.test(reply);\n    result = langOk ? 'pass' : 'fail';\n    detail = langOk ? `normal reply, no error${handoff ? ' (hand-off)' : cites.length ? ' (with source)' : ''}` : 'reply not in German';\n    if (t.note) detail += `. Note: ${t.note}`;\n  }\n\n  return {\n    run_at: runAt,\n    run_id: runId,\n    id: t.id,\n    category: t.category || 'General',\n    question: t.question.length > 80 ? t.question.slice(0, 77) + '...' : t.question,\n    expected: t.kind === 'fixed' ? `fixed: ${t.start}` : t.kind === 'answer' || t.kind === 'german' ? `answer from ${t.source}` : t.kind === 'contains' ? (t.note || t.match) : t.kind,\n    result,\n    detail,\n    reply: reply.replace(/\\s+/g, ' ').slice(0, 400),\n  };\n});\n\nreturn results.map(r => ({ json: r }));\n"
+      },
+      "id": "29ef810c-d5e3-4328-b52a-48f40b8cfea6",
+      "name": "Check replies",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build report  (Workflow 13, JavaScript, Run Once for All Items)\n// One short Discord message for #brewtec-agent-dev-ops with the score and every test that did not pass.\nconst rows = $input.all().map(i => i.json);\nconst passed = rows.filter(r => r.result === 'pass').length;\nconst retry = rows.filter(r => r.result === 'retry');\nconst failed = rows.filter(r => r.result === 'fail');\nconst scored = rows.length - retry.length;\nconst score = scored ? Math.round(100 * passed / scored) : 0;\n\nconst file = $('Test cases').first().json.file_name || '';\nconst lines = [`**Automated chatbot tests: ${passed} of ${scored} passed (${score}%)**` + (file ? ` · ${file}` : '')];\nconst cats = [...new Set(rows.map(r => r.category || 'General'))];\nlines.push(cats.map(c => { const g = rows.filter(r => (r.category || 'General') === c); return `${c}: ${g.filter(r => r.result === 'pass').length}/${g.length}`; }).join(' · '));\nif (retry.length) lines.push(`Not scored, assistant was busy: ${retry.map(r => r.id).join(', ')}`);\nconst skipped = ($('Test cases').first().json.skipped || []);\nif (skipped.length) lines.push(`Skipped, check the row in chatbot_test_cases: ${skipped.join('; ')}`);\nif (failed.length) {\n  lines.push('Failed:');\n  for (const f of failed) lines.push(`- ${f.id} ${f.question} -> ${f.detail}`);\n} else {\n  lines.push('No failures.');\n}\nlet msg = lines.join('\\n');\nif (msg.length > 1900) msg = msg.slice(0, 1897) + '...';\nreturn [{ json: { discord_message: msg, total: rows.length, passed, failed: failed.length, retry: retry.length, score } }];\n"
+      },
+      "id": "93cc11fd-c2d1-4f3e-b01d-2efb644a0986",
+      "name": "Build report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_ops_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.discord_message }) }}",
+        "options": {}
+      },
+      "id": "beb37e22-3b34-4c56-b5cf-0a3d2c19ddd3",
+      "name": "Post report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2112,
+        64
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build Excel  (Workflow 13, JavaScript, Run Once for All Items)\n// Builds one .xlsx workbook: a Summary sheet plus one sheet per test category.\n// Written in plain JavaScript (no libraries): the sheets are XML files packed into a zip without compression.\n// Output: xlsx_base64 and file_name. The next node turns the base64 text into the file.\nconst rows = $('Check replies').all().map(i => i.json);\nconst report = $('Build report').first().json;\nconst meta = $('Test cases').first().json;\nconst runAt = rows[0]?.run_at || '';\nconst runId = rows[0]?.run_id || String($execution.id);\n\n// ---------- sheet content ----------\nconst cats = [...new Set(rows.map(r => r.category || 'General'))];\nconst count = (list, res) => list.filter(r => r.result === res).length;\n\nconst summary = [\n  ['BrewTec automated chatbot tests'],\n  ['Run', runAt],\n  ['Execution', runId],\n  ['Test file', meta.file_name || ''],\n  ['Score', `${report.passed} of ${report.passed + report.failed} passed (${report.score}%)`],\n  [],\n  ['Category', 'Tests', 'Passed', 'Failed', 'Retry', 'Pass rate'],\n  ...cats.map(c => {\n    const g = rows.filter(r => (r.category || 'General') === c);\n    const scored = g.length - count(g, 'retry');\n    return [c, g.length, count(g, 'pass'), count(g, 'fail'), count(g, 'retry'), scored ? `${Math.round(100 * count(g, 'pass') / scored)}%` : ''];\n  }),\n  ['Total', rows.length, count(rows, 'pass'), count(rows, 'fail'), count(rows, 'retry'), `${report.score}%`],\n];\nconst skipped = meta.skipped || [];\nif (skipped.length) { summary.push([], ['Skipped rows in the test file']); skipped.forEach(s => summary.push([s])); }\n\nconst HEAD = ['Test', 'Question', 'Expected', 'Result', 'Detail', 'Reply'];\nconst sheets = [{ name: 'Summary', rows: summary, widths: [26, 12, 10, 10, 10, 12], headerRow: 7 }];\nconst used = new Set(['summary']);\nfor (const c of cats) {\n  let name = c.replace(/[\\[\\]:*?\\/\\\\]/g, ' ').trim().slice(0, 31) || 'General';\n  let n = 2; while (used.has(name.toLowerCase())) name = name.slice(0, 28) + ' ' + n++;\n  used.add(name.toLowerCase());\n  const g = rows.filter(r => (r.category || 'General') === c);\n  sheets.push({ name, widths: [9, 45, 32, 9, 45, 80], headerRow: 1, resultCol: 3,\n    rows: [HEAD, ...g.map(r => [r.id, r.question, r.expected, r.result, r.detail, r.reply])] });\n}\n\n// ---------- XML ----------\nconst esc = v => String(v ?? '').replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/g, '')\n  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst colName = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };\n// styles: 0 normal, 1 header, 2 pass, 3 fail, 4 retry, 5 wrapped text, 6 title\nfunction sheetXml(sh) {\n  const out = [];\n  sh.rows.forEach((row, ri) => {\n    const r = ri + 1;\n    const cells = row.map((v, ci) => {\n      const ref = colName(ci) + r;\n      let s = 0;\n      if (r === sh.headerRow) s = 1;\n      else if (sh.name === 'Summary' && r === 1) s = 6;\n      else if (sh.resultCol !== undefined && ci === sh.resultCol) s = v === 'pass' ? 2 : v === 'fail' ? 3 : v === 'retry' ? 4 : 0;\n      else if (sh.name !== 'Summary' && r > 1 && [1, 2, 4, 5].includes(ci)) s = 5;\n      if (typeof v === 'number') return `<c r=\"${ref}\" s=\"${s}\"><v>${v}</v></c>`;\n      return `<c r=\"${ref}\" s=\"${s}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">${esc(v)}</t></is></c>`;\n    }).join('');\n    out.push(`<row r=\"${r}\">${cells}</row>`);\n  });\n  const cols = sh.widths.map((w, i) => `<col min=\"${i + 1}\" max=\"${i + 1}\" width=\"${w}\" customWidth=\"1\"/>`).join('');\n  const lastCol = colName(Math.max(...sh.rows.map(r => r.length), 1) - 1);\n  const pane = sh.headerRow === 1\n    ? '<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"1\" topLeftCell=\"A2\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>'\n    : '<sheetViews><sheetView workbookViewId=\"0\"/></sheetViews>';\n  const filter = sh.headerRow === 1 && sh.rows.length > 1 ? `<autoFilter ref=\"A1:${lastCol}${sh.rows.length}\"/>` : '';\n  return `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">${pane}<cols>${cols}</cols><sheetData>${out.join('')}</sheetData>${filter}</worksheet>`;\n}\n\nconst styles = `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">\n<fonts count=\"3\"><font><sz val=\"11\"/><name val=\"Calibri\"/></font><font><b/><sz val=\"11\"/><name val=\"Calibri\"/></font><font><b/><sz val=\"14\"/><name val=\"Calibri\"/></font></fonts>\n<fills count=\"6\"><fill><patternFill patternType=\"none\"/></fill><fill><patternFill patternType=\"gray125\"/></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFE7E6E1\"/></patternFill></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFD9F0D3\"/></patternFill></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFF8D7D5\"/></patternFill></fill>\n<fill><patternFill patternType=\"solid\"><fgColor rgb=\"FFFCEFC7\"/></patternFill></fill></fills>\n<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders>\n<cellStyleXfs count=\"1\"><xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\"/></cellStyleXfs>\n<cellXfs count=\"7\">\n<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyAlignment=\"1\"><alignment vertical=\"top\"/></xf>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"2\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\"/>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"3\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\"/></xf>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"4\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\"/></xf>\n<xf numFmtId=\"0\" fontId=\"1\" fillId=\"5\" borderId=\"0\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyAlignment=\"1\"><alignment vertical=\"top\"/></xf>\n<xf numFmtId=\"0\" fontId=\"0\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyAlignment=\"1\"><alignment vertical=\"top\" wrapText=\"1\"/></xf>\n<xf numFmtId=\"0\" fontId=\"2\" fillId=\"0\" borderId=\"0\" xfId=\"0\" applyFont=\"1\"/>\n</cellXfs>\n<cellStyles count=\"1\"><cellStyle name=\"Normal\" xfId=\"0\" builtinId=\"0\"/></cellStyles></styleSheet>`;\n\nconst files = [\n  ['[Content_Types].xml', `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/>${sheets.map((s, i) => `<Override PartName=\"/xl/worksheets/sheet${i + 1}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>`).join('')}</Types>`],\n  ['_rels/.rels', `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>`],\n  ['xl/workbook.xml', `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets>${sheets.map((s, i) => `<sheet name=\"${esc(s.name)}\" sheetId=\"${i + 1}\" r:id=\"rId${i + 1}\"/>`).join('')}</sheets></workbook>`],\n  ['xl/_rels/workbook.xml.rels', `<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">${sheets.map((s, i) => `<Relationship Id=\"rId${i + 1}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet${i + 1}.xml\"/>`).join('')}<Relationship Id=\"rId${sheets.length + 1}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/></Relationships>`],\n  ['xl/styles.xml', styles],\n  ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)]),\n];\n\n// ---------- zip (stored, no compression) ----------\nfunction utf8(str) {\n  const out = [];\n  for (let i = 0; i < str.length; i++) {\n    let c = str.charCodeAt(i);\n    if (c >= 0xD800 && c <= 0xDBFF && i + 1 < str.length) { c = 0x10000 + ((c - 0xD800) << 10) + (str.charCodeAt(++i) - 0xDC00); }\n    if (c < 0x80) out.push(c);\n    else if (c < 0x800) out.push(0xC0 | (c >> 6), 0x80 | (c & 63));\n    else if (c < 0x10000) out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));\n    else out.push(0xF0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));\n  }\n  return out;\n}\nconst CRC = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t.push(c >>> 0); } return t; })();\nconst crc32 = b => { let c = 0xFFFFFFFF; for (const x of b) c = CRC[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };\nconst u16 = v => [v & 255, (v >>> 8) & 255];\nconst u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];\n\nconst bytes = []; const central = [];\nfor (const [name, content] of files) {\n  const nameB = utf8(name); const data = utf8(content); const crc = crc32(data); const offset = bytes.length;\n  const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nameB.length), ...u16(0)];\n  for (const x of [0x50, 0x4B, 0x03, 0x04, ...common, ...nameB]) bytes.push(x);\n  for (const x of data) bytes.push(x);\n  central.push([0x50, 0x4B, 0x01, 0x02, ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset), ...nameB]);\n}\nconst cdStart = bytes.length; let cdSize = 0;\nfor (const c of central) { for (const x of c) bytes.push(x); cdSize += c.length; }\nfor (const x of [0x50, 0x4B, 0x05, 0x06, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cdSize), ...u32(cdStart), ...u16(0)]) bytes.push(x);\n\nconst B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';\nlet b64 = '';\nfor (let i = 0; i < bytes.length; i += 3) {\n  const n = (bytes[i] << 16) | ((bytes[i + 1] ?? 0) << 8) | (bytes[i + 2] ?? 0);\n  b64 += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=') + (i + 2 < bytes.length ? B64[n & 63] : '=');\n}\n\nconst stamp = String(runAt).replace(/[: ]/g, '').replace(/^(\\d{4}-\\d{2}-\\d{2})(\\d{4})$/, '$1_$2');\nreturn [{ json: { xlsx_base64: b64, file_name: `chatbot_test_results_${stamp || runId}.xlsx`, sheets: sheets.map(s => s.name) } }];\n"
+      },
+      "id": "51e84eba-3245-4054-9044-7aad023924b3",
+      "name": "Build Excel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "xlsx_base64",
+        "options": {
+          "fileName": "={{ $json.file_name }}",
+          "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
+      },
+      "id": "de88a8c3-9458-4df8-8878-62f142d57c3a",
+      "name": "Excel file",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Config').first().json.report_email }}",
+        "subject": "=BrewTec chatbot tests {{ $now.setZone('Europe/Berlin').toFormat('yyyy-MM-dd HH:mm') }}: {{ $('Build report').first().json.passed }} passed, {{ $('Build report').first().json.failed }} failed",
+        "emailType": "text",
+        "message": "={{ $('Build report').first().json.discord_message.replace(/\\*\\*/g, '') }}\n\nThe full results are in the attached Excel file.",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "c1b5759e-25fb-48e0-94c7-5390973bc11c",
+      "name": "E-mail results",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2544,
+        304
+      ],
+      "webhookId": "b7ae8323-32e2-438b-b8d2-3d9be6e7118e",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upload test file": {
+      "main": [
+        [
+          {
+            "node": "Read test file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Test cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read test file": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test cases": {
+      "main": [
+        [
+          {
+            "node": "Ask the assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the assistant": {
+      "main": [
+        [
+          {
+            "node": "Check replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check replies": {
+      "main": [
+        [
+          {
+            "node": "Build report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report": {
+      "main": [
+        [
+          {
+            "node": "Post report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Excel": {
+      "main": [
+        [
+          {
+            "node": "Excel file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel file": {
+      "main": [
+        [
+          {
+            "node": "E-mail results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: brewtec
+    folder: BrewTec
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

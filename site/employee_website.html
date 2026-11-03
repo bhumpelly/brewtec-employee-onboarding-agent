@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BrewTec GmbH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: industrial spec-sheet. Graphite ink on cool steel paper, one brass accent, condensed display type. */
+  :root {
+    --paper: #eef0ee;
+    --panel: #f8f9f8;
+    --steel: #d5d9d6;
+    --ink: #1c1f1e;
+    --ink-soft: #59605d;
+    --brass: #a8761c;
+    --brass-ink: #fffaf0;
+    --graphite: #232726;
+    --on-graphite: #e9ece9;
+    --user: #2f3533;
+    --warn-bg: #fbf1dc;
+    --warn-line: #d9aa4c;
+    --stop-bg: #f9e6e3;
+    --stop-line: #d08a80;
+    --ok: #2e7a4e;
+    --bad: #b5402f;
+    --display: "Archivo", "Arial Narrow", Arial, sans-serif;
+    --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141716; --panel: #1b1f1e; --steel: #2c3230; --ink: #e6e9e7; --ink-soft: #9ba39f;
+      --brass: #d6a24a; --brass-ink: #1a1408; --graphite: #0d0f0e; --on-graphite: #e6e9e7; --user: #3a423f;
+      --warn-bg: #2f2716; --warn-line: #8c6c2b; --stop-bg: #331d1a; --stop-line: #8a4a40; --ok: #6cc28f; --bad: #e07a6a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #141716; --panel: #1b1f1e; --steel: #2c3230; --ink: #e6e9e7; --ink-soft: #9ba39f;
+    --brass: #d6a24a; --brass-ink: #1a1408; --graphite: #0d0f0e; --on-graphite: #e6e9e7; --user: #3a423f;
+    --warn-bg: #2f2716; --warn-line: #8c6c2b; --stop-bg: #331d1a; --stop-line: #8a4a40; --ok: #6cc28f; --bad: #e07a6a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-family: var(--display); font-stretch: 78%; line-height: 1.02; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* nav */
+  .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--steel); }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 14px; }
+  .logo { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--display); font-stretch: 75%; letter-spacing: .02em; text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; }
+  .nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 15px; }
+  .nav ul a { text-decoration: none; color: var(--ink-soft); }
+  .nav ul a:hover { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 4px; padding: 11px 18px; font-weight: 600; cursor: pointer; text-decoration: none; background: var(--brass); color: var(--brass-ink); }
+  .btn:hover { filter: brightness(1.06); }
+  .btn.line { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+
+  /* hero */
+  .hero { padding-block: 72px 56px; border-bottom: 1px solid var(--steel); }
+  .hero .wrap { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: end; }
+  .hero h1 { font-size: clamp(46px, 7.2vw, 96px); font-weight: 800; margin: 14px 0 22px; }
+  .hero p.lead { font-size: 20px; color: var(--ink-soft); max-width: 34em; margin: 0 0 28px; }
+  .hero .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .spec { background: var(--graphite); color: var(--on-graphite); border-radius: 6px; padding: 24px; }
+  .spec .eyebrow { color: var(--brass); }
+  .spec dl { display: grid; grid-template-columns: 1fr auto; margin: 16px 0 0; }
+  .spec dt, .spec dd { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.12); margin: 0; }
+  .spec dt { color: #a9b0ad; font-size: 15px; }
+  .spec dd { font: 500 22px/1.2 var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .spec dd small { font-size: 13px; color: #a9b0ad; }
+
+  section { padding-block: 72px; }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 32px; }
+  .head h2 { font-size: clamp(34px, 4.6vw, 56px); font-weight: 800; margin-top: 10px; }
+  .head p { max-width: 30em; color: var(--ink-soft); margin: 0; }
+
+  /* products */
+  .products { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--steel); border: 1px solid var(--steel); }
+  .product { background: var(--panel); padding: 26px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .product canvas { width: 100%; height: 150px; display: block; }
+  .product h3 { font-size: 30px; font-weight: 700; }
+  .product p { margin: 0; color: var(--ink-soft); }
+  .product .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .tag { font: 500 12px/1 var(--mono); padding: 6px 8px; border: 1px solid var(--steel); border-radius: 3px; color: var(--ink-soft); }
+
+  /* service */
+  .service { background: var(--graphite); color: var(--on-graphite); }
+  .service .head p { color: #a9b0ad; }
+  .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .promise div { border-top: 2px solid var(--brass); padding-top: 18px; }
+  .promise strong { display: block; font: 800 46px/1 var(--display); font-stretch: 75%; margin-bottom: 8px; }
+  .promise p { margin: 0; color: #c3c9c6; }
+
+  /* sites */
+  .sites { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .site { border: 1px solid var(--steel); background: var(--panel); border-radius: 6px; padding: 26px; }
+  .site h3 { font-size: 34px; font-weight: 700; margin: 8px 0 10px; }
+  .site p { margin: 0 0 12px; color: var(--ink-soft); }
+  .site ul { margin: 0; padding-left: 18px; }
+
+  /* careers / employees */
+  .employees .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
+  .card { border: 1px solid var(--steel); background: var(--panel); border-radius: 6px; padding: 26px; display: flex; flex-direction: column; gap: 14px; }
+  .card h3 { font-size: 30px; font-weight: 700; }
+  .card p { margin: 0; color: var(--ink-soft); }
+  .depts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .depts span { padding: 6px 12px; border-radius: 999px; background: var(--steel); font-size: 14px; }
+  .askrow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--steel); background: var(--paper); border-radius: 999px; padding: 7px 13px; font-size: 14px; cursor: pointer; }
+  .chip:hover { border-color: var(--brass); }
+
+  footer { border-top: 1px solid var(--steel); padding-block: 36px 110px; font-size: 15px; color: var(--ink-soft); }
+  footer .wrap { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 24px; }
+  footer strong { color: var(--ink); display: block; margin-bottom: 6px; }
+  footer p { margin: 0; }
+
+  /* chat widget */
+  .launcher { position: fixed; z-index: 50; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; gap: 10px; border: 0; border-radius: 999px; padding: 14px 20px 14px 16px; cursor: pointer;
+    background: var(--graphite); color: var(--on-graphite); font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .launcher svg { width: 22px; height: 22px; }
+  .launcher .pip { width: 9px; height: 9px; border-radius: 50%; background: var(--brass); }
+  .chatbox { position: fixed; z-index: 60; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: min(410px, calc(100vw - 40px)); height: min(640px, calc(100vh - 40px)); background: var(--panel); border: 1px solid var(--steel);
+    border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; overflow: hidden; }
+  .cb-head { background: var(--graphite); color: var(--on-graphite); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .cb-head .t { flex: 1; min-width: 0; }
+  .cb-head strong { display: block; font: 700 20px/1.1 var(--display); font-stretch: 80%; }
+  .cb-head small { color: #a9b0ad; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #a9b0ad; }
+  .dot.ok { background: var(--ok); } .dot.err { background: var(--bad); }
+  .icon-btn { border: 0; background: transparent; color: var(--on-graphite); cursor: pointer; padding: 6px; border-radius: 4px; font-size: 13px; }
+  .icon-btn:hover { background: rgba(255,255,255,.1); }
+  .cb-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 88%; display: flex; flex-direction: column; gap: 5px; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .bubble { padding: 9px 13px; border-radius: 10px; font-size: 15.5px; line-height: 1.5; overflow-wrap: anywhere; }
+  .msg.user .bubble { background: var(--user); color: #f2f4f3; border-bottom-right-radius: 3px; }
+  .msg.bot .bubble { background: var(--paper); border: 1px solid var(--steel); border-bottom-left-radius: 3px; }
+  .msg.handoff .bubble { background: var(--warn-bg); border-color: var(--warn-line); }
+  .msg.blocked .bubble, .msg.error .bubble { background: var(--stop-bg); border-color: var(--stop-line); }
+  .bubble p { margin: 0 0 7px; } .bubble p:last-child { margin: 0; }
+  .bubble ul, .bubble ol { margin: 3px 0 7px; padding-left: 20px; }
+  .lbl { font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+  .srcs { display: flex; flex-wrap: wrap; gap: 5px; }
+  .src { font: 500 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 3px; background: var(--steel); color: var(--ink-soft); }
+  .welcome { color: var(--ink-soft); font-size: 15px; }
+  .welcome .askrow { margin-top: 10px; }
+  .typing { display: inline-flex; gap: 4px; padding: 12px 14px; }
+  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); animation: b 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .15s } .typing span:nth-child(3) { animation-delay: .3s }
+  @keyframes b { 0%, 60%, 100% { opacity: .3; transform: none } 30% { opacity: 1; transform: translateY(-3px) } }
+  .cb-code { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--steel); background: var(--paper); align-items: center; }
+  .cb-code label { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+  .cb-code input { flex: 1; min-width: 0; border: 1px solid var(--steel); background: var(--panel); border-radius: 4px; padding: 6px 8px; font: 500 14px var(--mono); letter-spacing: .2em; text-transform: uppercase; }
+  .cb-code button { border: 1px solid var(--steel); background: var(--panel); border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  .cb-form { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--steel); }
+  .cb-form textarea { flex: 1; resize: none; height: 44px; max-height: 120px; padding: 10px 12px; border: 1px solid var(--steel); border-radius: 6px; background: var(--paper); overflow-y: hidden; }
+  .cb-note { font-size: 12px; color: var(--ink-soft); padding: 0 14px 10px; }
+
+  @media (max-width: 880px) {
+    .nav ul { display: none; }
+    .hero { padding-block: 44px 40px; }
+    .hero .wrap, .sites, .employees .grid, footer .wrap { grid-template-columns: 1fr; }
+    .products, .promise { grid-template-columns: 1fr; }
+    section { padding-block: 52px; }
+    .chatbox { right: 0; bottom: 0; width: 100vw; height: 100%; border-radius: 0; border: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px); padding-top: env(safe-area-inset-top, 0px); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Main">
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="BrewTec home">
+      <svg viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="4" fill="var(--graphite)"/><path d="M7 10h11v5.5A4.5 4.5 0 0 1 13.5 20h-2A4.5 4.5 0 0 1 7 15.5z" fill="var(--brass)"/><path d="M18 11.5h1.2a2.3 2.3 0 0 1 0 4.6H18" fill="none" stroke="var(--brass)" stroke-width="1.5"/></svg>
+      BREWTEC
+    </a>
+    <ul>
+      <li><a href="#machines">Machines</a></li>
+      <li><a href="#service">Service</a></li>
+      <li><a href="#sites">Sites</a></li>
+      <li><a href="#employees">Employees</a></li>
+      <li><a href="/webhook/brewtec/hr" data-hr-link>HR portal</a></li>
+    </ul>
+    <button class="btn" type="button" data-open-chat>Employee assistant</button>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Coffee equipment from Koeln and Leverkusen</span>
+      <h1>The same shot, ten thousand times over.</h1>
+      <p class="lead">BrewTec builds espresso machines and grinders for cafés, offices and hotels, and keeps them running with a spare-parts list in every box and a five-year warranty.</p>
+      <div class="actions">
+        <a class="btn" href="#machines">See the machines</a>
+        <button class="btn line" type="button" data-open-chat>Ask the employee assistant</button>
+      </div>
+    </div>
+    <aside class="spec" aria-label="Extraction specification">
+      <span class="eyebrow">Factory calibration, every machine</span>
+      <dl>
+        <dt>Brew pressure</dt><dd>9.0 <small>bar</small></dd>
+        <dt>Group head temperature</dt><dd>93.0 <small>°C</small></dd>
+        <dt>Dose tolerance</dt><dd>±0.3 <small>g</small></dd>
+        <dt>Warranty</dt><dd>5 <small>years</small></dd>
+      </dl>
+    </aside>
+  </div>
+</header>
+
+<section id="machines">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="eyebrow">Machines</span><h2>Three machines, one standard</h2></div>
+      <p>Every machine is calibrated in Koeln and shipped from our Leverkusen warehouse with its own spare-parts list.</p>
+    </div>
+    <div class="products">
+      <article class="product">
+        <canvas data-draw="duo" aria-hidden="true"></canvas>
+        <h3>Barista Duo</h3>
+        <p>Two-group machine for busy cafés. Dual boilers, separate steam circuit.</p>
+        <div class="row"><span class="tag">2 groups</span><span class="tag">11 l boiler</span><span class="tag">PID</span></div>
+      </article>
+      <article class="product">
+        <canvas data-draw="solo" aria-hidden="true"></canvas>
+        <h3>Office Solo</h3>
+        <p>One group, plumbed in, built for an office kitchen that serves 40 people a day.</p>
+        <div class="row"><span class="tag">1 group</span><span class="tag">plumbed</span><span class="tag">auto-clean</span></div>
+      </article>
+      <article class="product">
+        <canvas data-draw="grind" aria-hidden="true"></canvas>
+        <h3>Mahlwerk 64</h3>
+        <p>Flat-burr grinder with stepless adjustment and a timed dose for consistent shots.</p>
+        <div class="row"><span class="tag">64 mm burrs</span><span class="tag">stepless</span><span class="tag">timed dose</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="service" id="service">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="eyebrow">Service</span><h2>We promise only what we deliver</h2></div>
+      <p>Straight from our code of conduct: be honest about the product, and stand behind it.</p>
+    </div>
+    <div class="promise">
+      <div><strong class="mono">5 years</strong><p>Warranty on every machine and grinder we sell.</p></div>
+      <div><strong class="mono">1 list</strong><p>A full spare-parts list ships in every box, so any technician can repair it.</p></div>
+      <div><strong class="mono">2 sites</strong><p>Engineering and support in Koeln, warehouse and logistics in Leverkusen.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="sites">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="eyebrow">Sites</span><h2>Where BrewTec works</h2></div>
+      <p>84 people across two sites on the Rhine.</p>
+    </div>
+    <div class="sites">
+      <article class="site">
+        <span class="eyebrow">Koeln</span>
+        <h3>Office and engineering</h3>
+        <p>Product engineering, calibration, Customer Success and Marketing.</p>
+        <ul><li>Office roles can work remotely up to 3 days a week</li><li>Meeting rooms booked through the room calendar</li></ul>
+      </article>
+      <article class="site">
+        <span class="eyebrow">Leverkusen</span>
+        <h3>Warehouse and logistics</h3>
+        <p>Spare parts, shipping and machine handover to customers.</p>
+        <ul><li>Warehouse roles work on site in shifts</li><li>Rugged tablets for every warehouse colleague</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="employees" id="employees">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="eyebrow">Employees</span><h2>For our team</h2></div>
+      <p>The employee assistant answers from BrewTec's official policies and names the document for every answer.</p>
+    </div>
+    <div class="grid">
+      <article class="card">
+        <h3>Ask the employee assistant</h3>
+        <p>Leave, sickness, working time, VPN, expenses, payroll, travel, parking and holidays. German works too.</p>
+        <div class="askrow">
+          <button class="chip" type="button" data-ask="How do I request vacation?">How do I request vacation?</button>
+          <button class="chip" type="button" data-ask="How do I set up the VPN?">How do I set up the VPN?</button>
+          <button class="chip" type="button" data-ask="When do I get my payslip?">When do I get my payslip?</button>
+          <button class="chip" type="button" data-ask="Can I park at the Koeln office?">Can I park at the Koeln office?</button>
+          <button class="chip" type="button" data-ask="Wie lange muss ich nach 6 Stunden Pause machen?">Pause nach 6 Stunden?</button>
+        </div>
+      </article>
+      <article class="card">
+        <h3>Starting at BrewTec?</h3>
+        <p>Your welcome email holds a 6-character personal code. Give it to the assistant to see your onboarding tasks, your device and your work account.</p>
+        <div class="depts"><span>Engineering</span><span>Customer Success</span><span>Warehouse and Logistics</span><span>Marketing</span></div>
+        <div><button class="btn" type="button" data-open-chat data-focus-code>Check my onboarding</button></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div><strong>BrewTec GmbH</strong><p>Coffee equipment, Koeln and Leverkusen. Fictional company for a course capstone project.</p></div>
+    <div><strong>People Ops</strong><p>people@brewtec.de<br>Payroll: payroll@brewtec.de<br><a href="/webhook/brewtec/hr" data-hr-link>HR portal (HR login)</a></p></div>
+    <div><strong>IT help desk</strong><p>it-help@brewtec.de<br>Whistleblowing: speakup.brewtec.de</p></div>
+  </div>
+</footer>
+
+<button class="launcher" id="launcher" type="button" data-open-chat aria-label="Open the employee assistant">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+  Ask BrewTec <span class="pip"></span>
+</button>
+
+<div class="chatbox" id="chatbox" role="dialog" aria-label="BrewTec employee assistant" hidden>
+  <div class="cb-head">
+    <div class="t"><strong>Employee assistant</strong><small><span class="dot" id="dot"></span><span id="stat">Answers from BrewTec policies</span></small></div>
+    <button class="icon-btn" type="button" id="reset" title="Start a new conversation">New</button>
+    <button class="icon-btn" type="button" id="close" aria-label="Close the assistant">✕</button>
+  </div>
+  <div class="cb-msgs" id="msgs" aria-live="polite"></div>
+  <form class="cb-code" id="codeForm" autocomplete="off">
+    <label for="code">My code</label>
+    <input id="code" maxlength="6" placeholder="AB12CD">
+    <button type="submit">Check</button>
+  </form>
+  <form class="cb-form" id="form">
+    <textarea id="q" rows="1" placeholder="Type your question" aria-label="Your question"></textarea>
+    <button class="btn" id="send" type="submit">Send</button>
+  </form>
+  <div class="cb-note">You are chatting with an AI system that answers from BrewTec documents. Never type tax IDs, bank details, social security numbers or health details. Such ID numbers are removed before they reach the assistant. Chats are kept for 90 days.</div>
+</div>
+
+<script>
+  // Chat endpoint of workflow 3. When n8n serves this page, the address is taken from the page itself,
+  // so it keeps working when the tunnel address changes. Opened as a local file, it falls back to localhost.
+  // HR portal link: works on the n8n address, the tunnel, and when the page is opened as a file
+  document.querySelectorAll('[data-hr-link]').forEach(a => {
+    try { const b = new URL(document.baseURI); if (b.protocol !== 'http:' && b.protocol !== 'https:') a.href = 'http://localhost:5678/webhook/brewtec/hr'; }
+    catch (e) { a.href = 'http://localhost:5678/webhook/brewtec/hr'; }
+  });
+  const CHAT_PATH = '/webhook/1ddcdf13-f58a-479a-9200-66b56dd65b09/chat';
+  const CHAT_URL = (() => {
+    try {
+      const base = new URL(document.baseURI);
+      if (base.protocol === 'http:' || base.protocol === 'https:') return base.origin + CHAT_PATH;
+    } catch (e) {}
+    return 'http://localhost:5678' + CHAT_PATH;
+  })();
+
+  const $ = id => document.getElementById(id);
+  const box = $('chatbox'), msgs = $('msgs'), q = $('q'), send = $('send');
+  let busy = false, opened = false;
+
+  // ---- session (works even where storage is blocked) ----
+  const newId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '');
+  let memSession = null;
+  function session() {
+    try { let s = sessionStorage.getItem('bt_session'); if (!s) { s = newId(); sessionStorage.setItem('bt_session', s); } return s; }
+    catch (e) { return memSession || (memSession = newId()); }
+  }
+  function resetSession() { memSession = newId(); try { sessionStorage.setItem('bt_session', memSession); } catch (e) {} }
+
+  // ---- open and close ----
+  function welcome() {
+    msgs.innerHTML = '<div class="welcome"><p><strong>Hi, I answer questions about BrewTec policies.</strong> Every answer names its source document. If I cannot find it, I pass your question to People Ops.</p>' +
+      '<div class="askrow">' + ['How do I request vacation?', 'How do I set up the VPN?', 'What happens on my first day?', 'Does BrewTec pay for the Deutschlandticket?']
+        .map(t => '<button class="chip" type="button" data-ask="' + t + '">' + t + '</button>').join('') + '</div></div>';
+  }
+  function openChat(focusCode) {
+    box.hidden = false; $('launcher').hidden = true;
+    if (!opened) { welcome(); opened = true; }
+    (focusCode ? $('code') : q).focus();
+  }
+  function closeChat() { box.hidden = true; $('launcher').hidden = false; $('launcher').focus(); }
+  document.addEventListener('click', e => {
+    const opener = e.target.closest('[data-open-chat]');
+    if (opener) { openChat(opener.hasAttribute('data-focus-code')); return; }
+    const chip = e.target.closest('[data-ask]');
+    if (chip) { openChat(false); ask(chip.getAttribute('data-ask')); }
+  });
+  $('close').onclick = closeChat;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) closeChat(); });
+  $('reset').onclick = () => { if (!busy) { resetSession(); welcome(); q.focus(); } };
+
+  // ---- render answers ----
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function pretty(file) {
+    const p = file.replace(/\.md$/i, '').split('-');
+    const map = { hr: 'HR', it: 'IT', finance: 'Finance', facilities: 'Facilities', general: 'General', onboarding: 'Onboarding' };
+    const dept = map[p[0]] ? map[p.shift()] : '';
+    let t = p.join(' '); t = t.charAt(0).toUpperCase() + t.slice(1);
+    return dept ? dept + ': ' + t : t;
+  }
+  function inline(s) {
+    return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/(^|[\s(])\*(?!\s)([^*\n]+?)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+  }
+  function format(text) {
+    const sources = [];
+    let body = String(text).replace(/\[([^\]]*\.md[^\]]*)\]/gi, (all, inner) => { const fs = inner.split(/[,;]/).map(s => s.trim()); if (!fs.every(f => /^[a-z0-9][a-z0-9\-_.]*\.md$/i.test(f))) return all; fs.forEach(f => { if (!sources.includes(f)) sources.push(f); }); return ''; });
+    const status = /\[onboarding status\]/i.test(body);
+    body = body.replace(/\[(onboarding status|code needed)\]/gi, '').trim();
+    let html = '', list = null;
+    const close = () => { if (list) { html += '</' + list + '>'; list = null; } };
+    for (const raw of esc(body).split('\n')) {
+      const line = raw.trim();
+      const b = line.match(/^[-•]\s+(.*)/) || line.match(/^\*\s+(.*)/), n = line.match(/^\d+[.)]\s+(.*)/);
+      if (b || n) {
+        const type = b ? 'ul' : 'ol';
+        if (list !== type) { close(); html += '<' + type + '>'; list = type; }
+        html += '<li>' + inline((b || n)[1]) + '</li>';
+      } else { close(); if (line) html += '<p>' + inline(line) + '</p>'; }
+    }
+    close();
+    return { html: html || '<p>' + esc(text) + '</p>', sources, status };
+  }
+  function add(role, text, kind) {
+    msgs.querySelector('.welcome')?.remove();
+    const w = document.createElement('div');
+    w.className = 'msg ' + role + (kind ? ' ' + kind : '');
+    if (role === 'user') {
+      w.innerHTML = '<div class="bubble"></div>'; w.firstChild.textContent = text;
+    } else {
+      const f = format(text);
+      if (kind === 'handoff') w.insertAdjacentHTML('beforeend', '<span class="lbl">Passed to People Ops</span>');
+      if (kind === 'blocked') w.insertAdjacentHTML('beforeend', '<span class="lbl">Personal data removed</span>');
+      w.insertAdjacentHTML('beforeend', '<div class="bubble">' + f.html + '</div>');
+      if (f.sources.length || f.status) {
+        w.insertAdjacentHTML('beforeend', '<div class="srcs">' +
+          f.sources.map(s => '<span class="src" title="' + esc(s) + '">' + esc(pretty(s)) + '</span>').join('') +
+          (f.status ? '<span class="src">Your onboarding status</span>' : '') + '</div>');
+      }
+    }
+    msgs.appendChild(w); msgs.scrollTop = msgs.scrollHeight;
+  }
+  function status(cls, text) { $('dot').className = 'dot' + (cls ? ' ' + cls : ''); $('stat').textContent = text; }
+  function setBusy(v) { busy = v; send.disabled = v; q.disabled = v; }
+
+  // ---- talk to n8n ----
+  async function ask(text) {
+    text = String(text || '').trim();
+    if (!text || busy) return;
+    add('user', text); q.value = '';
+    setBusy(true); status('', 'Thinking');
+    msgs.insertAdjacentHTML('beforeend', '<div class="msg bot" id="typing"><div class="bubble typing" aria-label="Assistant is typing"><span></span><span></span><span></span></div></div>');
+    msgs.scrollTop = msgs.scrollHeight;
+    try {
+      const res = await fetch(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sendMessage', sessionId: session(), chatInput: text }) });
+      if (!res.ok) throw new Error('the server answered ' + res.status);
+      const raw = await res.text();
+      let data; try { data = JSON.parse(raw); } catch (e) { data = raw; }
+      if (Array.isArray(data)) data = data[0] || {};
+      const reply = typeof data === 'string' ? data : (data.output ?? data.text ?? data.reply ?? '');
+      $('typing')?.remove();
+      if (!reply) throw new Error('the answer was empty');
+      add('bot', reply, /^I could not find a reliable answer/i.test(reply) ? 'handoff' : /^For your safety I removed/i.test(reply) ? 'blocked' : '');
+      status('ok', 'Connected');
+    } catch (err) {
+      $('typing')?.remove();
+      add('bot', 'The assistant cannot be reached right now: ' + err.message + '. Please try again in a moment.', 'error');
+      status('err', 'Not reachable');
+    } finally { setBusy(false); q.focus(); }
+  }
+  $('form').addEventListener('submit', e => { e.preventDefault(); ask(q.value); });
+  q.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(q.value); } });
+  $('codeForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const c = $('code').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (c.length !== 6) { $('code').focus(); return; }
+    $('code').value = '';
+    ask('My personal code is ' + c + '. What do I still need to do?');
+  });
+
+  // ---- product line drawings ----
+  function drawAll() {
+    const css = getComputedStyle(document.documentElement);
+    const ink = css.getPropertyValue('--ink').trim(), brass = css.getPropertyValue('--brass').trim(), steel = css.getPropertyValue('--steel').trim();
+    document.querySelectorAll('canvas[data-draw]').forEach(cv => {
+      const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
+      const g = cv.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, r.width, r.height);
+      g.lineWidth = 1.6; g.strokeStyle = ink; g.lineJoin = 'round';
+      const W = r.width, H = r.height, cx = W / 2, base = H - 14;
+      g.strokeStyle = steel; g.beginPath(); g.moveTo(10, base); g.lineTo(W - 10, base); g.stroke();
+      g.strokeStyle = ink;
+      const kind = cv.dataset.draw;
+      if (kind === 'grind') {
+        g.beginPath(); g.moveTo(cx - 34, 18); g.lineTo(cx + 34, 18); g.lineTo(cx + 18, 52); g.lineTo(cx - 18, 52); g.closePath(); g.stroke();
+        g.strokeRect(cx - 30, 52, 60, 66); g.strokeRect(cx - 40, base - 14, 80, 14);
+        g.beginPath(); g.arc(cx, 85, 14, 0, Math.PI * 2); g.stroke();
+        g.strokeStyle = brass; g.beginPath(); g.moveTo(cx, 85); g.lineTo(cx + 10, 76); g.stroke();
+      } else {
+        const groups = kind === 'duo' ? 2 : 1, w = kind === 'duo' ? Math.min(220, W - 40) : 130, x = cx - w / 2;
+        g.strokeRect(x, 26, w, base - 40);
+        g.beginPath(); g.moveTo(x, 26); g.lineTo(x + 12, 14); g.lineTo(x + w - 12, 14); g.lineTo(x + w, 26); g.stroke();
+        for (let i = 0; i < groups; i++) {
+          const gx = groups === 1 ? cx : x + w * (i === 0 ? .32 : .68);
+          g.strokeRect(gx - 14, 62, 28, 12);
+          g.beginPath(); g.moveTo(gx + 14, 68); g.lineTo(gx + 32, 68); g.stroke();
+          g.strokeStyle = brass; g.beginPath(); g.moveTo(gx - 5, 80); g.lineTo(gx - 5, 92); g.moveTo(gx + 5, 80); g.lineTo(gx + 5, 92); g.stroke();
+          g.strokeStyle = ink; g.strokeRect(gx - 9, 96, 18, 14);
+        }
+        g.beginPath(); g.arc(x + w - 22, 42, 8, 0, Math.PI * 2); g.stroke();
+        g.strokeStyle = brass; g.beginPath(); g.moveTo(x + w - 22, 42); g.lineTo(x + w - 17, 37); g.stroke();
+      }
+    });
+  }
+  drawAll();
+  addEventListener('resize', drawAll);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawAll);
+</script>
+</body>
+</html>

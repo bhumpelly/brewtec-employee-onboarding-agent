@@ -1,0 +1,310 @@
+{
+  "name": "8 - BrewTec Workday integration (new hires)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 8. Workday integration\nEvery 5 minutes it reads the Workday custom report New_Hires (Report as a Service, JSON) over HTTP, keeps hires whose Hire business process is Successfully Completed, and starts workflow 1 once per new worker. workday_sync remembers who was already sent.\n\n**Setup**\n1. Run 04_hris.sql. Import and publish workflow 9 (the mock Workday).\n2. Config: workday_token must match api_token in workflow 9.\n3. Postgres credential on Claim new workers and Log sync.\n4. Start onboarding: pick workflow 1 from the list.\n5. Run now, then Publish. Settings > Error workflow: 6.\n\n**Going live with a real Workday tenant**\nworkday_report_url = https://<host>/ccx/service/customreport2/<tenant>/<ISU user>/New_Hires?format=json. Replace the Bearer header with the Workday OAuth 2.0 credential of the integration system user (API client). Mapping, claim and workflow 1 stay the same.\n\n**Safe pickup**\nA worker is claimed in one statement, so two runs never start the same hire twice. If nothing arrived after 1 hour, the worker is picked up again. A rejected worker is retried after its row in workday_sync is deleted.",
+        "height": 620,
+        "width": 480,
+        "color": 4
+      },
+      "id": "96cd65a3-f62f-47a1-a3a6-94bdc5ef926d",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "fb966b44-bfe3-48ab-b442-5b2d60f6d315",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        400
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cd1eb3e9-ce56-4e18-9a17-b8db554a7b84",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        560,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5a7bfba3-774f-4ec5-a2de-63079c1e1c80",
+              "name": "workday_report_url",
+              "value": "http://localhost:5678/webhook/workday/ccx/service/customreport2/brewtec/ISU_Onboarding/New_Hires?format=json",
+              "type": "string"
+            },
+            {
+              "id": "81e2a6a0-0148-4e6f-970e-28ddd358d94d",
+              "name": "workday_token",
+              "value": "brewtec-demo-token-change-me",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "14ee15c9-523e-4ee1-9bfb-b1009f4a6d25",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.workday_report_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.workday_token }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "7581b14f-6621-4ea7-9f4a-6eb1ad706d85",
+      "name": "Get new hires (Workday report)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1008,
+        512
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Map Workday fields  (Workflow 8, JavaScript, Run Once for All Items)\n// Turns the Workday report (Report_Entry list) into one item per new hire, with the same field\n// names as the People Ops form, so workflow 1 handles both sources the same way.\n// Only completed hire processes start onboarding. \"In Progress\" (offer not final) and\n// \"Rescinded\" (offer withdrawn) are skipped. Entries without the required fields are skipped too\n// and counted, so a broken report never starts a half-empty onboarding.\nconst body = $input.first().json || {};\nconst entries = Array.isArray(body.Report_Entry) ? body.Report_Entry : [];\nconst REQUIRED = ['Worker_ID', 'Legal_Name_First_Name', 'Legal_Name_Last_Name', 'Personal_Email',\n  'Supervisory_Organization', 'Business_Title', 'Manager', 'Manager_Email', 'Location', 'Hire_Date'];\n\n// \"Marketing (Mia Wagner)\" -> \"Marketing\"   \"BrewTec Koeln\" -> \"Koeln\"\nconst orgToDepartment = org => String(org || '').replace(/\\s*\\(.*\\)\\s*$/, '').trim();\nconst locationToSite = loc => String(loc || '').replace(/^BrewTec\\s+/i, '').trim();\n\nconst out = [];\nlet skippedIncomplete = 0;\nlet skippedNotCompleted = 0;\nfor (const e of entries) {\n  if (String(e.Business_Process_Status || '') !== 'Successfully Completed') { skippedNotCompleted++; continue; }\n  if (REQUIRED.some(k => !String(e[k] ?? '').trim())) { skippedIncomplete++; continue; }\n  out.push({\n    hris_id: String(e.Worker_ID),\n    'First name': e.Legal_Name_First_Name,\n    'Last name': e.Legal_Name_Last_Name,\n    'Private email': e.Personal_Email,\n    'Work email': e.Work_Email || '',\n    'Department': orgToDepartment(e.Supervisory_Organization),\n    'Job title': e.Business_Title,\n    'Manager name': e.Manager,\n    'Manager email': e.Manager_Email,\n    'Site': locationToSite(e.Location),\n    'Start date': String(e.Hire_Date).slice(0, 10),\n    'Notes for People Ops': e.Comment || '',\n    report_total: entries.length,\n    skipped_not_completed: skippedNotCompleted,\n    skipped_incomplete: skippedIncomplete,\n  });\n}\n// Counters are final only after the loop\nreturn out.map(o => ({ json: { ...o, skipped_not_completed: skippedNotCompleted,\n  skipped_incomplete: skippedIncomplete } }));\n"
+      },
+      "id": "9b9d30bc-1410-4991-87de-beb8984eac66",
+      "name": "Map Workday fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Claims every worker that onboarding has not seen yet, in one statement.\n-- Retries a worker that was sent more than 1 hour ago but never arrived in workflow 1.\nwith incoming as (\n  select j as doc, j->>'hris_id' as worker_id from jsonb_array_elements($1::jsonb) j\n), claimed as (\n  insert into workday_sync (worker_id, sync_status, synced_at)\n  select i.worker_id, 'sent_to_onboarding', now() from incoming i\n  where not exists (select 1 from employees e where e.hris_id = i.worker_id)\n  on conflict (worker_id) do update\n    set sync_status = 'sent_to_onboarding', synced_at = now(), sync_note = null\n    where workday_sync.sync_status = 'sent_to_onboarding'\n      and workday_sync.synced_at < now() - interval '1 hour'\n  returning worker_id\n)\nselect i.doc from incoming i join claimed c on c.worker_id = i.worker_id;",
+        "options": {
+          "queryReplacement": "={{ [ JSON.stringify($input.all().map(i => i.json)) ] }}"
+        }
+      },
+      "id": "6e1a60b2-5370-485c-9851-f63b24c48f2d",
+      "name": "Claim new workers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1440,
+        512
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Unwrap claimed  (Workflow 8, JavaScript, Run Once for All Items)\n// The claim query returns each claimed worker as one JSON document. This turns them back into\n// plain items with the form field names, one item per hire, for workflow 1.\nreturn $input.all()\n  .map(i => i.json.doc)\n  .filter(d => d && d.hris_id)\n  .map(d => ({ json: d }));\n"
+      },
+      "id": "98cdc183-b3dd-43da-a583-9f2e54e6701b",
+      "name": "Unwrap claimed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "1 - BrewTec intake and HR approval"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "edaa9843-4753-4639-a59b-8799e5b2bef8",
+      "name": "Start onboarding (workflow 1)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1888,
+        512
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into automation_log (workflow, step, status, detail)\nvalues ('wf8', 'workday_sync', 'ok', $1)\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Unwrap claimed').all().length + ' new hire(s) sent to onboarding: ' + $('Unwrap claimed').all().map(i => i.json.hris_id).join(', ') + '. Skipped in report: ' + $('Map Workday fields').first().json.skipped_not_completed + ' not completed, ' + $('Map Workday fields').first().json.skipped_incomplete + ' incomplete' ] }}"
+        }
+      },
+      "id": "7e0c35f9-3504-4cd1-8fc9-540e9087ea14",
+      "name": "Log sync",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2112,
+        512
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Get new hires (Workday report)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get new hires (Workday report)": {
+      "main": [
+        [
+          {
+            "node": "Map Workday fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Workday fields": {
+      "main": [
+        [
+          {
+            "node": "Claim new workers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim new workers": {
+      "main": [
+        [
+          {
+            "node": "Unwrap claimed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unwrap claimed": {
+      "main": [
+        [
+          {
+            "node": "Start onboarding (workflow 1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start onboarding (workflow 1)": {
+      "main": [
+        [
+          {
+            "node": "Log sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": []
+}

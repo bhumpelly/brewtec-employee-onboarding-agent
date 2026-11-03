@@ -1,0 +1,28 @@
+# Secrets and local settings
+.env
+*.env
+!.env.example
+credentials*.json
+*.pem
+*.key
+
+# n8n local data and exports with execution data
+n8n_data/
+.n8n/
+executions/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Temporary files
+*.log
+*.tmp
+node_modules/
+__pycache__/
+
+# Test screenshots are kept locally, not in the repository
+evidence/

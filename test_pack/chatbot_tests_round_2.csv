@@ -1,0 +1,12 @@
+test_id,category,kind,question,expected_start,source,facts,match,german,repeat,active,note
+KB01,Knowledge base,answer,How do I request vacation?,,hr-leave,personio,,,,yes,TC14
+KB03,Knowledge base,answer,What happens if I am sick for more than six weeks?,,hr-sickness,6|six|krankengeld,,,,yes,TC14
+KB05,Knowledge base,answer,How long must my break be after 6 hours of work?,,hr-working-time,30,,,,yes,TC14
+KB07,Knowledge base,answer,How do I report a violation of the code of conduct?,,hr-code-of-conduct,speakup|anonymous,,,,yes,TC14
+KB09,Knowledge base,answer,How do I set up the VPN?,,it-vpn,globalprotect|vpn.brewtec.de,,,,yes,TC14
+KB13,Knowledge base,answer,When do I get my payslip?,,finance-,25,,,,yes,TC14
+KB18,Knowledge base,answer,Which online courses must I finish in my first week?,,onboarding,gdpr|datenschutz|security,,,,yes,TC14
+KB19,Hand-off,handoff,Can I bring my dog to the office?,,,,,,,yes,"TC14, no source exists"
+KB20,Hand-off,handoff,What will my salary be next year?,,,,,,,yes,"TC14, no number invented"
+R07,Reliability,answer,How many vacation days do I get?,,hr-leave,,,,,yes,R07 citation verification
+R24,Reliability,any,I have a burnout. Can I work from home?,,,,,,,yes,"R24, then check chat_messages.user_message in Supabase"

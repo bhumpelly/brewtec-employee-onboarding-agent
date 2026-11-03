@@ -1,0 +1,571 @@
+{
+  "name": "11 - BrewTec Employee Payroll Details Secure Form",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 11. Employee payroll details secure form\nThe new hire enters IBAN, tax ID, social security number, tax class and health insurance. Workflow 4 e-mails a personal single-use link (14 days) and repeats it every 3 days until submitted. The form also asks for the personal code from the welcome e-mail. After 5 wrong codes the link locks.\n\n**Setup**\n1. Run 05_payroll.sql and create the key in Supabase Vault (see the file).\n2. Postgres credential on Check link and Encrypt and save.\n3. Publish. Settings > Error workflow: 6.\n\n**Protection**\nChecked here (IBAN mod 97, tax ID check digit, social security check digit) and again in the database. Encrypted with AES-256 inside Postgres, key in Supabase Vault. This workflow saves NO execution data (Settings), so n8n never stores the values. Pages are not cached, not framed, keep the link on BrewTec pages and run no scripts.",
+        "height": 600,
+        "width": 500,
+        "color": 4
+      },
+      "id": "0f043b02-b477-45d8-b03d-4861fce8510c",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "path": "brewtec/pfb",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "800d9fa0-abd8-4034-9378-3b2819fba168",
+      "name": "Open form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        624,
+        320
+      ],
+      "webhookId": "43031c6f-6b0a-4b00-bbe9-d3ba9c7961af"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select pfb_open($1) as r;",
+        "options": {
+          "queryReplacement": "={{ [ String($json.query?.t ?? '') ] }}"
+        }
+      },
+      "id": "44fe69b5-caa2-474e-a593-fd98d8004990",
+      "name": "Check link",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        848,
+        320
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Render page  (Workflow 11, Employee Payroll Details , JavaScript, Run Once for All Items)\n// One renderer for every page of the form: the form itself, the form with errors, and the\n// messages for a used, expired, locked or unknown link and for success.\n// Entered bank, tax or social security values are never written back into a page.\nconst esc = v => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\n\nconst j = $input.first().json || {};\nconst opened = safe('Open form');                 // GET: the webhook with ?t=...\nconst r = j.r || null;                            // result of pfb_open or pfb_submit\nconst validated = safe('Validate form');        // POST: the checked form\nconst token = String(j.token ?? (validated && validated.token) ?? (opened && opened.query ? opened.query.t : '') ?? '');\nconst okToken = /^[a-f0-9]{48}$/.test(token);\n\nconst MESSAGES = {\n  unknown: ['This link is not valid', 'Use the newest link from your e-mail. If it still does not work, write to people@brewtec.de and People Ops sends you a new one.', 'bad'],\n  used: ['Already submitted', 'Your Employee Payroll Details  was already received. To change your bank or tax details, write to payroll@brewtec.de.', 'ok'],\n  expired: ['This link has expired', 'For your security the link works for 14 days. You get a new link with the next reminder e-mail, or write to people@brewtec.de.', 'bad'],\n  locked: ['This link is locked', 'The personal code was entered wrongly 5 times, so the link was locked to protect your data. Write to people@brewtec.de for a new link.', 'bad'],\n  error: ['The form is temporarily unavailable', 'Nothing was saved. Our team has been alerted. Please try again in a few minutes with the same link.', 'bad'],\n};\n\nlet page = 'form';\nlet errors = Array.isArray(j.errors) ? j.errors : [];\nlet firstName = '';\nlet title = '', text = '', tone = '';\n\nif (j.page === 'error') page = 'error';\nelse if (r && r.ok === true) page = 'done';\nelse if (r && r.valid === true) firstName = r.first_name || '';\nelse if (r && (r.reason === 'wrong_code')) {\n  errors = [`The personal code is not correct. ${Number(r.attempts_left ?? 0)} attempt(s) left before the link is locked.`];\n} else if (r && r.reason === 'format') {\n  errors = ['Some details are not in the right format. Please check them and send the form again.'];\n} else if (r && r.reason) page = r.reason in MESSAGES ? r.reason : 'unknown';\nelse if (!errors.length && !okToken) page = 'unknown';\n\nif (page === 'done') {\n  title = `Thank you${r.first_name ? ', ' + r.first_name : ''}`;\n  text = 'Your Employee Payroll Details  was received. Your bank, tax and social security details were stored encrypted, and only the BrewTec payroll team can see them. You can close this page.';\n  tone = 'ok';\n} else if (page !== 'form') {\n  [title, text, tone] = MESSAGES[page];\n}\n\nconst style = `:root{--paper:#eef0ee;--panel:#f8f9f8;--steel:#d5d9d6;--ink:#1c1f1e;--ink-soft:#59605d;--brass:#a8761c;--brass-ink:#fffaf0;--graphite:#232726;\n--ok:#2e7a4e;--ok-bg:#e3f1e8;--bad:#b5402f;--bad-bg:#f9e6e3;color-scheme:light;\n--display:\"Archivo\",\"Arial Narrow\",Arial,sans-serif;--body:\"Source Sans 3\",\"Segoe UI\",system-ui,sans-serif;--mono:\"JetBrains Mono\",Consolas,monospace}\n@media (prefers-color-scheme:dark){:root{--paper:#141716;--panel:#1b1f1e;--steel:#2c3230;--ink:#e6e9e7;--ink-soft:#9ba39f;--brass:#d6a24a;--brass-ink:#1a1408;--graphite:#0d0f0e;\n--ok:#6cc28f;--ok-bg:#16291e;--bad:#e07a6a;--bad-bg:#331d1a;color-scheme:dark}}\n*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}\nheader{background:var(--graphite);color:#e9ece9}header div{max-width:760px;margin:0 auto;padding:14px 16px;font:800 22px/1 var(--display);font-stretch:75%;letter-spacing:.02em}\nheader small{font:500 12px/1 var(--mono);letter-spacing:.1em;color:#a9b0ad;text-transform:uppercase;margin-left:8px}\nmain{max-width:760px;margin:0 auto;padding:28px 16px 60px}\nh1{font:800 clamp(30px,5vw,42px)/1.05 var(--display);font-stretch:78%;margin:6px 0 12px}\n.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}\n.lead{color:var(--ink-soft);margin:0 0 20px}\n.card{background:var(--panel);border:1px solid var(--steel);border-radius:6px;padding:20px}\n.errors{background:var(--bad-bg);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:12px 16px;margin-bottom:16px}\n.errors ul{margin:0;padding-left:18px}\n.msg{border-radius:6px;padding:18px 20px;border:1px solid}.msg.ok{background:var(--ok-bg);border-color:var(--ok)}.msg.bad{background:var(--bad-bg);border-color:var(--bad)}\n.msg h1{margin-top:0}\nform{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}\nlabel{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-soft)}label.full{grid-column:1/-1}\ninput,select{font:500 16px var(--mono);color:var(--ink);background:var(--paper);border:1px solid var(--steel);border-radius:4px;padding:10px;width:100%}\ninput:focus,select:focus{outline:2px solid var(--brass);outline-offset:1px}\nsmall.hint{font-size:12.5px;color:var(--ink-soft)}\nbutton{grid-column:1/-1;justify-self:start;border:0;border-radius:4px;padding:12px 20px;font:600 16px var(--body);background:var(--brass);color:var(--brass-ink);cursor:pointer}\n.privacy{margin-top:22px;font-size:14px;color:var(--ink-soft)}.privacy h2{font:700 20px/1.2 var(--display);font-stretch:80%;color:var(--ink);margin:0 0 6px}\n.privacy ul{padding-left:18px;margin:6px 0}\n@media (max-width:560px){form{grid-template-columns:1fr}}`;\n\nconst privacy = `<section class=\"privacy\"><h2>How your data is protected</h2><ul>\n<li><b>Purpose:</b> salary payment, wage tax (ELStAM) and social insurance registration. BrewTec is legally required to process these details as your employer.</li>\n<li><b>Who can see it:</b> only the payroll team. HR and the onboarding assistant only see that the form was received and a masked IBAN.</li>\n<li><b>Protection:</b> sent over an encrypted connection and stored encrypted (AES-256). Every view by payroll is logged.</li>\n<li><b>How long:</b> as long as the law requires for payroll records, then deleted.</li>\n<li><b>Questions or corrections:</b> payroll@brewtec.de. Never send these details by e-mail or chat.</li></ul></section>`;\n\nconst insurers = ['Techniker Krankenkasse (TK)', 'AOK Rheinland/Hamburg', 'BARMER', 'DAK-Gesundheit', 'IKK classic', 'KKH', 'hkk', 'Private Krankenversicherung'];\nconst body = page === 'form' ? `\n<div class=\"eyebrow\">Employee Payroll Details </div>\n<h1>${firstName ? 'Hello ' + esc(firstName) + ', your' : 'Your'} payroll details</h1>\n<p class=\"lead\">Payroll needs these details to pay your first salary on time. It takes about 3 minutes.</p>\n${errors.length ? `<div class=\"errors\" role=\"alert\"><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}\n<div class=\"card\"><form method=\"post\" action=\"/webhook/brewtec/pfb/submit\" autocomplete=\"off\">\n<input type=\"hidden\" name=\"t\" value=\"${esc(token)}\">\n<label class=\"full\">Personal code from your welcome e-mail<input name=\"code\" required maxlength=\"6\" autocomplete=\"one-time-code\" spellcheck=\"false\"></label>\n<label class=\"full\">IBAN<input name=\"iban\" required maxlength=\"42\" inputmode=\"text\" spellcheck=\"false\" placeholder=\"DE00 0000 0000 0000 0000 00\"><small class=\"hint\">The account your salary is paid into.</small></label>\n<label>Tax ID (Steuer-ID)<input name=\"tax_id\" required maxlength=\"14\" inputmode=\"numeric\" spellcheck=\"false\" placeholder=\"11 digits\"></label>\n<label>Tax class (Steuerklasse)<select name=\"tax_class\" required><option value=\"\" disabled selected>Choose</option>${[1, 2, 3, 4, 5, 6].map(n => `<option>${n}</option>`).join('')}</select></label>\n<label>Social security number<input name=\"sv_number\" required maxlength=\"16\" spellcheck=\"false\" placeholder=\"12 345678 A 123\"></label>\n<label>Health insurance<input name=\"health_insurer\" required maxlength=\"80\" list=\"insurers\"><datalist id=\"insurers\">${insurers.map(i => `<option value=\"${esc(i)}\">`).join('')}</datalist></label>\n<button type=\"submit\">Send securely</button>\n</form></div>${privacy}` : `\n<div class=\"msg ${tone}\"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>${page === 'done' ? '' : privacy}`;\n\nconst html = `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\"><meta name=\"referrer\" content=\"same-origin\"><title>BrewTec Employee Payroll Details </title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>${style}</style></head><body><header><div>BREWTEC <small>Employee self-service</small></div></header><main>${body}</main></body></html>`;\n\nreturn [{ json: { html, status: page === 'form' || page === 'done' ? 200 : (page === 'error' ? 503 : 410) } }];\n"
+      },
+      "id": "c8e7a01a-d7e9-46c8-ac3c-092805e502d0",
+      "name": "Render form",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "81ba73f6-3751-4bbf-834d-bf213aea211a",
+      "name": "Send form",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "brewtec/pfb/submit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "bc05a161-446d-493c-b9e6-3f8b709e8f5b",
+      "name": "Submit form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        624,
+        640
+      ],
+      "webhookId": "3bd5453e-b459-4d5d-ba19-175fec1d0615"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Validate form  (Workflow 11, Personalfragebogen, JavaScript, Run Once for All Items)\n// Checks the form before anything is stored. The values only live in memory here: this workflow\n// saves no execution data (see Settings), so n8n never writes them to its own database.\n//  1. IBAN: format and ISO 13616 checksum (mod 97). German IBANs must have 22 characters.\n//  2. Tax ID (Steuer-ID): 11 digits, no leading zero, ISO 7064 MOD 11,10 check digit.\n//  3. Social security number (Rentenversicherungsnummer): 8 digits, a letter, 3 digits, check digit.\n//  4. Health insurer and tax class from the allowed values, personal code with 6 characters.\n// Error messages never repeat the entered values.\n// Forgery protection: the personal 48-character link token from the e-mail works like an\n// anti-forgery token (another website cannot know it), and the personal code is required too.\n// No browser header check: n8n serves webhook pages in a sandbox, so browsers always report\n// the form as \"cross-site\" with origin \"null\", even when it is sent from the real form page.\n\nfunction ibanValid(iban) {\n  if (!/^[A-Z]{2}\\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;\n  if (iban.startsWith('DE') && iban.length !== 22) return false;\n  const moved = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));\n  let rest = 0;\n  for (const d of moved) rest = (rest * 10 + Number(d)) % 97;\n  return rest === 1;\n}\n\nfunction taxIdValid(id) {\n  if (!/^[1-9]\\d{10}$/.test(id)) return false;\n  let product = 10;\n  for (let i = 0; i < 10; i++) {\n    let sum = (Number(id[i]) + product) % 10;\n    if (sum === 0) sum = 10;\n    product = (sum * 2) % 11;\n  }\n  let check = 11 - product;\n  if (check === 10) check = 0;\n  return check === Number(id[10]);\n}\n\nfunction svValid(sv) {\n  if (!/^\\d{8}[A-Z]\\d{3}$/.test(sv)) return false;\n  const letter = String(sv.charCodeAt(8) - 64).padStart(2, '0');\n  const digits = sv.slice(0, 8) + letter + sv.slice(9, 11);\n  const weights = [2, 1, 2, 5, 7, 1, 2, 1, 2, 1, 2, 1];\n  let sum = 0;\n  for (let i = 0; i < 12; i++) {\n    const p = Number(digits[i]) * weights[i];\n    sum += Math.floor(p / 10) + (p % 10);\n  }\n  return sum % 10 === Number(sv[11]);\n}\n\nconst j = $input.first().json || {};\nconst b = j.body || {};\nconst clean = v => String(v ?? '').replace(/\\s+/g, '').toUpperCase();\nconst token = String(b.t ?? '').trim();\nconst code = clean(b.code).replace(/[^A-Z0-9]/g, '');\nconst iban = clean(b.iban);\nconst taxId = clean(b.tax_id);\nconst sv = clean(b.sv_number);\nconst insurer = String(b.health_insurer ?? '').replace(/\\s+/g, ' ').trim().slice(0, 80);\nconst taxClass = String(b.tax_class ?? '').trim();\n\nconst errors = [];\nif (!/^[a-f0-9]{48}$/.test(token)) errors.push('This link is not valid. Use the link from your e-mail.');\nif (code.length !== 6) errors.push('Enter your 6-character personal code from the welcome e-mail.');\nif (!ibanValid(iban)) errors.push('The IBAN is not valid. Please check it.');\nif (!taxIdValid(taxId)) errors.push('The tax ID (Steuer-ID) is not valid. It has 11 digits and is on your tax letter or payslip.');\nif (!svValid(sv)) errors.push('The social security number is not valid. It has 12 characters, for example 12 345678 A 123.');\nif (!insurer) errors.push('Enter your health insurance.');\nif (!/^[1-6]$/.test(taxClass)) errors.push('Choose your tax class.');\n\nreturn [{ json: {\n  valid: errors.length === 0,\n  errors,\n  token,\n  code,\n  iban,\n  tax_id: taxId,\n  sv_number: sv,\n  health_insurer: insurer,\n  tax_class: taxClass,\n} }];"
+      },
+      "id": "cfb4562b-d2de-4c40-91d7-454ab9291eac",
+      "name": "Validate form",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a53e251c-b7aa-4217-bc88-0cc95397a973",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "ffc1c0a7-7c15-4951-8384-178055efe743",
+      "name": "Form valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Checks link and code, encrypts with the Vault key, completes the onboarding task\nselect pfb_submit($1, $2, $3, $4, $5, $6, $7) as r;",
+        "options": {
+          "queryReplacement": "={{ [ $json.token, $json.code, $json.iban, $json.tax_id, $json.sv_number, $json.health_insurer, $json.tax_class ] }}"
+        }
+      },
+      "id": "84d3cdbf-b865-4605-834d-d0f262618bbb",
+      "name": "Encrypt and save",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1280,
+        560
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Render page  (Workflow 11, Employee Payroll Details, JavaScript, Run Once for All Items)\n// One renderer for every page of the form: the form itself, the form with errors, and the\n// messages for a used, expired, locked or unknown link and for success.\n// Entered bank, tax or social security values are never written back into a page.\nconst esc = v => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\n\nconst j = $input.first().json || {};\nconst opened = safe('Open form');                 // GET: the webhook with ?t=...\nconst r = j.r || null;                            // result of pfb_open or pfb_submit\nconst validated = safe('Validate form');        // POST: the checked form\nconst token = String(j.token ?? (validated && validated.token) ?? (opened && opened.query ? opened.query.t : '') ?? '');\nconst okToken = /^[a-f0-9]{48}$/.test(token);\n\nconst MESSAGES = {\n  unknown: ['This link is not valid', 'Use the newest link from your e-mail. If it still does not work, write to people@brewtec.de and People Ops sends you a new one.', 'bad'],\n  used: ['Already submitted', 'Your Employee Payroll Details was already received. To change your bank or tax details, write to payroll@brewtec.de.', 'ok'],\n  expired: ['This link has expired', 'For your security the link works for 14 days. You get a new link with the next reminder e-mail, or write to people@brewtec.de.', 'bad'],\n  locked: ['This link is locked', 'The personal code was entered wrongly 5 times, so the link was locked to protect your data. Write to people@brewtec.de for a new link.', 'bad'],\n  error: ['The form is temporarily unavailable', 'Nothing was saved. Our team has been alerted. Please try again in a few minutes with the same link.', 'bad'],\n};\n\nlet page = 'form';\nlet errors = Array.isArray(j.errors) ? j.errors : [];\nlet firstName = '';\nlet title = '', text = '', tone = '';\n\nif (j.page === 'error') page = 'error';\nelse if (r && r.ok === true) page = 'done';\nelse if (r && r.valid === true) firstName = r.first_name || '';\nelse if (r && (r.reason === 'wrong_code')) {\n  errors = [`The personal code is not correct. ${Number(r.attempts_left ?? 0)} attempt(s) left before the link is locked.`];\n} else if (r && r.reason === 'format') {\n  errors = ['Some details are not in the right format. Please check them and send the form again.'];\n} else if (r && r.reason) page = r.reason in MESSAGES ? r.reason : 'unknown';\nelse if (!errors.length && !okToken) page = 'unknown';\n\nif (page === 'done') {\n  title = `Thank you${r.first_name ? ', ' + r.first_name : ''}`;\n  text = 'Your Employee Payroll Details was received. Your bank, tax and social security details were stored encrypted, and only the BrewTec payroll team can see them. You can close this page.';\n  tone = 'ok';\n} else if (page !== 'form') {\n  [title, text, tone] = MESSAGES[page];\n}\n\nconst style = `:root{--paper:#eef0ee;--panel:#f8f9f8;--steel:#d5d9d6;--ink:#1c1f1e;--ink-soft:#59605d;--brass:#a8761c;--brass-ink:#fffaf0;--graphite:#232726;\n--ok:#2e7a4e;--ok-bg:#e3f1e8;--bad:#b5402f;--bad-bg:#f9e6e3;color-scheme:light;\n--display:\"Archivo\",\"Arial Narrow\",Arial,sans-serif;--body:\"Source Sans 3\",\"Segoe UI\",system-ui,sans-serif;--mono:\"JetBrains Mono\",Consolas,monospace}\n@media (prefers-color-scheme:dark){:root{--paper:#141716;--panel:#1b1f1e;--steel:#2c3230;--ink:#e6e9e7;--ink-soft:#9ba39f;--brass:#d6a24a;--brass-ink:#1a1408;--graphite:#0d0f0e;\n--ok:#6cc28f;--ok-bg:#16291e;--bad:#e07a6a;--bad-bg:#331d1a;color-scheme:dark}}\n*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}\nheader{background:var(--graphite);color:#e9ece9}header div{max-width:760px;margin:0 auto;padding:14px 16px;font:800 22px/1 var(--display);font-stretch:75%;letter-spacing:.02em}\nheader small{font:500 12px/1 var(--mono);letter-spacing:.1em;color:#a9b0ad;text-transform:uppercase;margin-left:8px}\nmain{max-width:760px;margin:0 auto;padding:28px 16px 60px}\nh1{font:800 clamp(30px,5vw,42px)/1.05 var(--display);font-stretch:78%;margin:6px 0 12px}\n.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}\n.lead{color:var(--ink-soft);margin:0 0 20px}\n.card{background:var(--panel);border:1px solid var(--steel);border-radius:6px;padding:20px}\n.errors{background:var(--bad-bg);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:12px 16px;margin-bottom:16px}\n.errors ul{margin:0;padding-left:18px}\n.msg{border-radius:6px;padding:18px 20px;border:1px solid}.msg.ok{background:var(--ok-bg);border-color:var(--ok)}.msg.bad{background:var(--bad-bg);border-color:var(--bad)}\n.msg h1{margin-top:0}\nform{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}\nlabel{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-soft)}label.full{grid-column:1/-1}\ninput,select{font:500 16px var(--mono);color:var(--ink);background:var(--paper);border:1px solid var(--steel);border-radius:4px;padding:10px;width:100%}\ninput:focus,select:focus{outline:2px solid var(--brass);outline-offset:1px}\nsmall.hint{font-size:12.5px;color:var(--ink-soft)}\nbutton{grid-column:1/-1;justify-self:start;border:0;border-radius:4px;padding:12px 20px;font:600 16px var(--body);background:var(--brass);color:var(--brass-ink);cursor:pointer}\n.privacy{margin-top:22px;font-size:14px;color:var(--ink-soft)}.privacy h2{font:700 20px/1.2 var(--display);font-stretch:80%;color:var(--ink);margin:0 0 6px}\n.privacy ul{padding-left:18px;margin:6px 0}\n@media (max-width:560px){form{grid-template-columns:1fr}}`;\n\nconst privacy = `<section class=\"privacy\"><h2>How your data is protected</h2><ul>\n<li><b>Purpose:</b> salary payment, wage tax (ELStAM) and social insurance registration. BrewTec is legally required to process these details as your employer.</li>\n<li><b>Who can see it:</b> only the payroll team. HR and the onboarding assistant only see that the form was received and a masked IBAN.</li>\n<li><b>Protection:</b> sent over an encrypted connection and stored encrypted (AES-256). Every view by payroll is logged.</li>\n<li><b>How long:</b> as long as the law requires for payroll records, then deleted.</li>\n<li><b>Questions or corrections:</b> payroll@brewtec.de. Never send these details by e-mail or chat.</li></ul></section>`;\n\nconst insurers = ['Techniker Krankenkasse (TK)', 'AOK Rheinland/Hamburg', 'BARMER', 'DAK-Gesundheit', 'IKK classic', 'KKH', 'hkk', 'Private Krankenversicherung'];\nconst body = page === 'form' ? `\n<div class=\"eyebrow\">Employee Payroll Details</div>\n<h1>${firstName ? 'Hello ' + esc(firstName) + ', your' : 'Your'} payroll details</h1>\n<p class=\"lead\">Payroll needs these details to pay your first salary on time. It takes about 3 minutes.</p>\n${errors.length ? `<div class=\"errors\" role=\"alert\"><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}\n<div class=\"card\"><form method=\"post\" action=\"/webhook/brewtec/pfb/submit\" autocomplete=\"off\">\n<input type=\"hidden\" name=\"t\" value=\"${esc(token)}\">\n<label class=\"full\">Personal code from your welcome e-mail<input name=\"code\" required maxlength=\"6\" autocomplete=\"one-time-code\" spellcheck=\"false\"></label>\n<label class=\"full\">IBAN<input name=\"iban\" required maxlength=\"42\" inputmode=\"text\" spellcheck=\"false\" placeholder=\"DE00 0000 0000 0000 0000 00\"><small class=\"hint\">The account your salary is paid into.</small></label>\n<label>Tax ID (Steuer-ID)<input name=\"tax_id\" required maxlength=\"14\" inputmode=\"numeric\" spellcheck=\"false\" placeholder=\"11 digits\"></label>\n<label>Tax class (Steuerklasse)<select name=\"tax_class\" required><option value=\"\" disabled selected>Choose</option>${[1, 2, 3, 4, 5, 6].map(n => `<option>${n}</option>`).join('')}</select></label>\n<label>Social security number<input name=\"sv_number\" required maxlength=\"16\" spellcheck=\"false\" placeholder=\"12 345678 A 123\"></label>\n<label>Health insurance<input name=\"health_insurer\" required maxlength=\"80\" list=\"insurers\"><datalist id=\"insurers\">${insurers.map(i => `<option value=\"${esc(i)}\">`).join('')}</datalist></label>\n<button type=\"submit\">Send securely</button>\n</form></div>${privacy}` : `\n<div class=\"msg ${tone}\"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>${page === 'done' ? '' : privacy}`;\n\nconst html = `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\"><meta name=\"referrer\" content=\"same-origin\"><title>BrewTec Employee Payroll Details</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>${style}</style></head><body><header><div>BREWTEC <small>Employee self-service</small></div></header><main>${body}</main></body></html>`;\n\nreturn [{ json: { html, status: page === 'form' || page === 'done' ? 200 : (page === 'error' ? 503 : 410) } }];\n"
+      },
+      "id": "c25a6d5c-87dd-4faf-8160-77d7abbff47f",
+      "name": "Render result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "3f11397c-a005-4d2c-b90f-ece82227943e",
+      "name": "Send result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1728,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Render page  (Workflow 11, Employee Payroll Details, JavaScript, Run Once for All Items)\n// One renderer for every page of the form: the form itself, the form with errors, and the\n// messages for a used, expired, locked or unknown link and for success.\n// Entered bank, tax or social security values are never written back into a page.\nconst esc = v => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\n\nconst j = $input.first().json || {};\nconst opened = safe('Open form');                 // GET: the webhook with ?t=...\nconst r = j.r || null;                            // result of pfb_open or pfb_submit\nconst validated = safe('Validate form');        // POST: the checked form\nconst token = String(j.token ?? (validated && validated.token) ?? (opened && opened.query ? opened.query.t : '') ?? '');\nconst okToken = /^[a-f0-9]{48}$/.test(token);\n\nconst MESSAGES = {\n  unknown: ['This link is not valid', 'Use the newest link from your e-mail. If it still does not work, write to people@brewtec.de and People Ops sends you a new one.', 'bad'],\n  used: ['Already submitted', 'Your Employee Payroll Details was already received. To change your bank or tax details, write to payroll@brewtec.de.', 'ok'],\n  expired: ['This link has expired', 'For your security the link works for 14 days. You get a new link with the next reminder e-mail, or write to people@brewtec.de.', 'bad'],\n  locked: ['This link is locked', 'The personal code was entered wrongly 5 times, so the link was locked to protect your data. Write to people@brewtec.de for a new link.', 'bad'],\n  error: ['The form is temporarily unavailable', 'Nothing was saved. Our team has been alerted. Please try again in a few minutes with the same link.', 'bad'],\n};\n\nlet page = 'form';\nlet errors = Array.isArray(j.errors) ? j.errors : [];\nlet firstName = '';\nlet title = '', text = '', tone = '';\n\nif (j.page === 'error') page = 'error';\nelse if (r && r.ok === true) page = 'done';\nelse if (r && r.valid === true) firstName = r.first_name || '';\nelse if (r && (r.reason === 'wrong_code')) {\n  errors = [`The personal code is not correct. ${Number(r.attempts_left ?? 0)} attempt(s) left before the link is locked.`];\n} else if (r && r.reason === 'format') {\n  errors = ['Some details are not in the right format. Please check them and send the form again.'];\n} else if (r && r.reason) page = r.reason in MESSAGES ? r.reason : 'unknown';\nelse if (!errors.length && !okToken) page = 'unknown';\n\nif (page === 'done') {\n  title = `Thank you${r.first_name ? ', ' + r.first_name : ''}`;\n  text = 'Your Employee Payroll Details was received. Your bank, tax and social security details were stored encrypted, and only the BrewTec payroll team can see them. You can close this page.';\n  tone = 'ok';\n} else if (page !== 'form') {\n  [title, text, tone] = MESSAGES[page];\n}\n\nconst style = `:root{--paper:#eef0ee;--panel:#f8f9f8;--steel:#d5d9d6;--ink:#1c1f1e;--ink-soft:#59605d;--brass:#a8761c;--brass-ink:#fffaf0;--graphite:#232726;\n--ok:#2e7a4e;--ok-bg:#e3f1e8;--bad:#b5402f;--bad-bg:#f9e6e3;color-scheme:light;\n--display:\"Archivo\",\"Arial Narrow\",Arial,sans-serif;--body:\"Source Sans 3\",\"Segoe UI\",system-ui,sans-serif;--mono:\"JetBrains Mono\",Consolas,monospace}\n@media (prefers-color-scheme:dark){:root{--paper:#141716;--panel:#1b1f1e;--steel:#2c3230;--ink:#e6e9e7;--ink-soft:#9ba39f;--brass:#d6a24a;--brass-ink:#1a1408;--graphite:#0d0f0e;\n--ok:#6cc28f;--ok-bg:#16291e;--bad:#e07a6a;--bad-bg:#331d1a;color-scheme:dark}}\n*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}\nheader{background:var(--graphite);color:#e9ece9}header div{max-width:760px;margin:0 auto;padding:14px 16px;font:800 22px/1 var(--display);font-stretch:75%;letter-spacing:.02em}\nheader small{font:500 12px/1 var(--mono);letter-spacing:.1em;color:#a9b0ad;text-transform:uppercase;margin-left:8px}\nmain{max-width:760px;margin:0 auto;padding:28px 16px 60px}\nh1{font:800 clamp(30px,5vw,42px)/1.05 var(--display);font-stretch:78%;margin:6px 0 12px}\n.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}\n.lead{color:var(--ink-soft);margin:0 0 20px}\n.card{background:var(--panel);border:1px solid var(--steel);border-radius:6px;padding:20px}\n.errors{background:var(--bad-bg);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:12px 16px;margin-bottom:16px}\n.errors ul{margin:0;padding-left:18px}\n.msg{border-radius:6px;padding:18px 20px;border:1px solid}.msg.ok{background:var(--ok-bg);border-color:var(--ok)}.msg.bad{background:var(--bad-bg);border-color:var(--bad)}\n.msg h1{margin-top:0}\nform{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}\nlabel{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-soft)}label.full{grid-column:1/-1}\ninput,select{font:500 16px var(--mono);color:var(--ink);background:var(--paper);border:1px solid var(--steel);border-radius:4px;padding:10px;width:100%}\ninput:focus,select:focus{outline:2px solid var(--brass);outline-offset:1px}\nsmall.hint{font-size:12.5px;color:var(--ink-soft)}\nbutton{grid-column:1/-1;justify-self:start;border:0;border-radius:4px;padding:12px 20px;font:600 16px var(--body);background:var(--brass);color:var(--brass-ink);cursor:pointer}\n.privacy{margin-top:22px;font-size:14px;color:var(--ink-soft)}.privacy h2{font:700 20px/1.2 var(--display);font-stretch:80%;color:var(--ink);margin:0 0 6px}\n.privacy ul{padding-left:18px;margin:6px 0}\n@media (max-width:560px){form{grid-template-columns:1fr}}`;\n\nconst privacy = `<section class=\"privacy\"><h2>How your data is protected</h2><ul>\n<li><b>Purpose:</b> salary payment, wage tax (ELStAM) and social insurance registration. BrewTec is legally required to process these details as your employer.</li>\n<li><b>Who can see it:</b> only the payroll team. HR and the onboarding assistant only see that the form was received and a masked IBAN.</li>\n<li><b>Protection:</b> sent over an encrypted connection and stored encrypted (AES-256). Every view by payroll is logged.</li>\n<li><b>How long:</b> as long as the law requires for payroll records, then deleted.</li>\n<li><b>Questions or corrections:</b> payroll@brewtec.de. Never send these details by e-mail or chat.</li></ul></section>`;\n\nconst insurers = ['Techniker Krankenkasse (TK)', 'AOK Rheinland/Hamburg', 'BARMER', 'DAK-Gesundheit', 'IKK classic', 'KKH', 'hkk', 'Private Krankenversicherung'];\nconst body = page === 'form' ? `\n<div class=\"eyebrow\">Employee Payroll Details</div>\n<h1>${firstName ? 'Hello ' + esc(firstName) + ', your' : 'Your'} payroll details</h1>\n<p class=\"lead\">Payroll needs these details to pay your first salary on time. It takes about 3 minutes.</p>\n${errors.length ? `<div class=\"errors\" role=\"alert\"><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}\n<div class=\"card\"><form method=\"post\" action=\"/webhook/brewtec/pfb/submit\" autocomplete=\"off\">\n<input type=\"hidden\" name=\"t\" value=\"${esc(token)}\">\n<label class=\"full\">Personal code from your welcome e-mail<input name=\"code\" required maxlength=\"6\" autocomplete=\"one-time-code\" spellcheck=\"false\"></label>\n<label class=\"full\">IBAN<input name=\"iban\" required maxlength=\"42\" inputmode=\"text\" spellcheck=\"false\" placeholder=\"DE00 0000 0000 0000 0000 00\"><small class=\"hint\">The account your salary is paid into.</small></label>\n<label>Tax ID (Steuer-ID)<input name=\"tax_id\" required maxlength=\"14\" inputmode=\"numeric\" spellcheck=\"false\" placeholder=\"11 digits\"></label>\n<label>Tax class (Steuerklasse)<select name=\"tax_class\" required><option value=\"\" disabled selected>Choose</option>${[1, 2, 3, 4, 5, 6].map(n => `<option>${n}</option>`).join('')}</select></label>\n<label>Social security number<input name=\"sv_number\" required maxlength=\"16\" spellcheck=\"false\" placeholder=\"12 345678 A 123\"></label>\n<label>Health insurance<input name=\"health_insurer\" required maxlength=\"80\" list=\"insurers\"><datalist id=\"insurers\">${insurers.map(i => `<option value=\"${esc(i)}\">`).join('')}</datalist></label>\n<button type=\"submit\">Send securely</button>\n</form></div>${privacy}` : `\n<div class=\"msg ${tone}\"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>${page === 'done' ? '' : privacy}`;\n\nconst html = `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\"><meta name=\"referrer\" content=\"same-origin\"><title>BrewTec Employee Payroll Details</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>${style}</style></head><body><header><div>BREWTEC <small>Employee self-service</small></div></header><main>${body}</main></body></html>`;\n\nreturn [{ json: { html, status: page === 'form' || page === 'done' ? 200 : (page === 'error' ? 503 : 410) } }];\n"
+      },
+      "id": "0900a194-2689-4abd-a32d-1e54a9782ea0",
+      "name": "Render errors",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 422,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "fca4c9ea-36a4-427a-afd7-ca8334984503",
+      "name": "Send errors",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ef9e47ce-555b-41c6-9d31-2fb4c1c49375",
+              "name": "page",
+              "value": "error",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b0793b4e-e92d-4d1c-aec3-b273088391e7",
+      "name": "Error page data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1072,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Render page  (Workflow 11, Employee Payroll Details, JavaScript, Run Once for All Items)\n// One renderer for every page of the form: the form itself, the form with errors, and the\n// messages for a used, expired, locked or unknown link and for success.\n// Entered bank, tax or social security values are never written back into a page.\nconst esc = v => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\n\nconst j = $input.first().json || {};\nconst opened = safe('Open form');                 // GET: the webhook with ?t=...\nconst r = j.r || null;                            // result of pfb_open or pfb_submit\nconst validated = safe('Validate form');        // POST: the checked form\nconst token = String(j.token ?? (validated && validated.token) ?? (opened && opened.query ? opened.query.t : '') ?? '');\nconst okToken = /^[a-f0-9]{48}$/.test(token);\n\nconst MESSAGES = {\n  unknown: ['This link is not valid', 'Use the newest link from your e-mail. If it still does not work, write to people@brewtec.de and People Ops sends you a new one.', 'bad'],\n  used: ['Already submitted', 'Your Employee Payroll Details was already received. To change your bank or tax details, write to payroll@brewtec.de.', 'ok'],\n  expired: ['This link has expired', 'For your security the link works for 14 days. You get a new link with the next reminder e-mail, or write to people@brewtec.de.', 'bad'],\n  locked: ['This link is locked', 'The personal code was entered wrongly 5 times, so the link was locked to protect your data. Write to people@brewtec.de for a new link.', 'bad'],\n  error: ['The form is temporarily unavailable', 'Nothing was saved. Our team has been alerted. Please try again in a few minutes with the same link.', 'bad'],\n};\n\nlet page = 'form';\nlet errors = Array.isArray(j.errors) ? j.errors : [];\nlet firstName = '';\nlet title = '', text = '', tone = '';\n\nif (j.page === 'error') page = 'error';\nelse if (r && r.ok === true) page = 'done';\nelse if (r && r.valid === true) firstName = r.first_name || '';\nelse if (r && (r.reason === 'wrong_code')) {\n  errors = [`The personal code is not correct. ${Number(r.attempts_left ?? 0)} attempt(s) left before the link is locked.`];\n} else if (r && r.reason === 'format') {\n  errors = ['Some details are not in the right format. Please check them and send the form again.'];\n} else if (r && r.reason) page = r.reason in MESSAGES ? r.reason : 'unknown';\nelse if (!errors.length && !okToken) page = 'unknown';\n\nif (page === 'done') {\n  title = `Thank you${r.first_name ? ', ' + r.first_name : ''}`;\n  text = 'Your Employee Payroll Details was received. Your bank, tax and social security details were stored encrypted, and only the BrewTec payroll team can see them. You can close this page.';\n  tone = 'ok';\n} else if (page !== 'form') {\n  [title, text, tone] = MESSAGES[page];\n}\n\nconst style = `:root{--paper:#eef0ee;--panel:#f8f9f8;--steel:#d5d9d6;--ink:#1c1f1e;--ink-soft:#59605d;--brass:#a8761c;--brass-ink:#fffaf0;--graphite:#232726;\n--ok:#2e7a4e;--ok-bg:#e3f1e8;--bad:#b5402f;--bad-bg:#f9e6e3;color-scheme:light;\n--display:\"Archivo\",\"Arial Narrow\",Arial,sans-serif;--body:\"Source Sans 3\",\"Segoe UI\",system-ui,sans-serif;--mono:\"JetBrains Mono\",Consolas,monospace}\n@media (prefers-color-scheme:dark){:root{--paper:#141716;--panel:#1b1f1e;--steel:#2c3230;--ink:#e6e9e7;--ink-soft:#9ba39f;--brass:#d6a24a;--brass-ink:#1a1408;--graphite:#0d0f0e;\n--ok:#6cc28f;--ok-bg:#16291e;--bad:#e07a6a;--bad-bg:#331d1a;color-scheme:dark}}\n*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:17px/1.6 var(--body)}\nheader{background:var(--graphite);color:#e9ece9}header div{max-width:760px;margin:0 auto;padding:14px 16px;font:800 22px/1 var(--display);font-stretch:75%;letter-spacing:.02em}\nheader small{font:500 12px/1 var(--mono);letter-spacing:.1em;color:#a9b0ad;text-transform:uppercase;margin-left:8px}\nmain{max-width:760px;margin:0 auto;padding:28px 16px 60px}\nh1{font:800 clamp(30px,5vw,42px)/1.05 var(--display);font-stretch:78%;margin:6px 0 12px}\n.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}\n.lead{color:var(--ink-soft);margin:0 0 20px}\n.card{background:var(--panel);border:1px solid var(--steel);border-radius:6px;padding:20px}\n.errors{background:var(--bad-bg);border:1px solid var(--bad);color:var(--bad);border-radius:6px;padding:12px 16px;margin-bottom:16px}\n.errors ul{margin:0;padding-left:18px}\n.msg{border-radius:6px;padding:18px 20px;border:1px solid}.msg.ok{background:var(--ok-bg);border-color:var(--ok)}.msg.bad{background:var(--bad-bg);border-color:var(--bad)}\n.msg h1{margin-top:0}\nform{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}\nlabel{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-soft)}label.full{grid-column:1/-1}\ninput,select{font:500 16px var(--mono);color:var(--ink);background:var(--paper);border:1px solid var(--steel);border-radius:4px;padding:10px;width:100%}\ninput:focus,select:focus{outline:2px solid var(--brass);outline-offset:1px}\nsmall.hint{font-size:12.5px;color:var(--ink-soft)}\nbutton{grid-column:1/-1;justify-self:start;border:0;border-radius:4px;padding:12px 20px;font:600 16px var(--body);background:var(--brass);color:var(--brass-ink);cursor:pointer}\n.privacy{margin-top:22px;font-size:14px;color:var(--ink-soft)}.privacy h2{font:700 20px/1.2 var(--display);font-stretch:80%;color:var(--ink);margin:0 0 6px}\n.privacy ul{padding-left:18px;margin:6px 0}\n@media (max-width:560px){form{grid-template-columns:1fr}}`;\n\nconst privacy = `<section class=\"privacy\"><h2>How your data is protected</h2><ul>\n<li><b>Purpose:</b> salary payment, wage tax (ELStAM) and social insurance registration. BrewTec is legally required to process these details as your employer.</li>\n<li><b>Who can see it:</b> only the payroll team. HR and the onboarding assistant only see that the form was received and a masked IBAN.</li>\n<li><b>Protection:</b> sent over an encrypted connection and stored encrypted (AES-256). Every view by payroll is logged.</li>\n<li><b>How long:</b> as long as the law requires for payroll records, then deleted.</li>\n<li><b>Questions or corrections:</b> payroll@brewtec.de. Never send these details by e-mail or chat.</li></ul></section>`;\n\nconst insurers = ['Techniker Krankenkasse (TK)', 'AOK Rheinland/Hamburg', 'BARMER', 'DAK-Gesundheit', 'IKK classic', 'KKH', 'hkk', 'Private Krankenversicherung'];\nconst body = page === 'form' ? `\n<div class=\"eyebrow\">Employee Payroll Details</div>\n<h1>${firstName ? 'Hello ' + esc(firstName) + ', your' : 'Your'} payroll details</h1>\n<p class=\"lead\">Payroll needs these details to pay your first salary on time. It takes about 3 minutes.</p>\n${errors.length ? `<div class=\"errors\" role=\"alert\"><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}\n<div class=\"card\"><form method=\"post\" action=\"/webhook/brewtec/pfb/submit\" autocomplete=\"off\">\n<input type=\"hidden\" name=\"t\" value=\"${esc(token)}\">\n<label class=\"full\">Personal code from your welcome e-mail<input name=\"code\" required maxlength=\"6\" autocomplete=\"one-time-code\" spellcheck=\"false\"></label>\n<label class=\"full\">IBAN<input name=\"iban\" required maxlength=\"42\" inputmode=\"text\" spellcheck=\"false\" placeholder=\"DE00 0000 0000 0000 0000 00\"><small class=\"hint\">The account your salary is paid into.</small></label>\n<label>Tax ID (Steuer-ID)<input name=\"tax_id\" required maxlength=\"14\" inputmode=\"numeric\" spellcheck=\"false\" placeholder=\"11 digits\"></label>\n<label>Tax class (Steuerklasse)<select name=\"tax_class\" required><option value=\"\" disabled selected>Choose</option>${[1, 2, 3, 4, 5, 6].map(n => `<option>${n}</option>`).join('')}</select></label>\n<label>Social security number<input name=\"sv_number\" required maxlength=\"16\" spellcheck=\"false\" placeholder=\"12 345678 A 123\"></label>\n<label>Health insurance<input name=\"health_insurer\" required maxlength=\"80\" list=\"insurers\"><datalist id=\"insurers\">${insurers.map(i => `<option value=\"${esc(i)}\">`).join('')}</datalist></label>\n<button type=\"submit\">Send securely</button>\n</form></div>${privacy}` : `\n<div class=\"msg ${tone}\"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>${page === 'done' ? '' : privacy}`;\n\nconst html = `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\"><meta name=\"referrer\" content=\"same-origin\"><title>BrewTec Employee Payroll Details</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>${style}</style></head><body><header><div>BREWTEC <small>Employee self-service</small></div></header><main>${body}</main></body></html>`;\n\nreturn [{ json: { html, status: page === 'form' || page === 'done' ? 200 : (page === 'error' ? 503 : 410) } }];\n"
+      },
+      "id": "cf347d8b-f2b8-4baa-baa1-fd5b53f0eb44",
+      "name": "Render error page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 503,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "9171534b-3fca-4375-bc0b-777f7298a6b6",
+      "name": "Send error page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1504,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "Personalfragebogen: Database step failed. The user got a friendly page. No personal values are in this alert."
+      },
+      "id": "de92b247-00a9-45ba-8ff8-3f1a6a3a32ae",
+      "name": "Alert the agent team",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        144
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Open form": {
+      "main": [
+        [
+          {
+            "node": "Check link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check link": {
+      "main": [
+        [
+          {
+            "node": "Render form",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error page data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render form": {
+      "main": [
+        [
+          {
+            "node": "Send form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit form": {
+      "main": [
+        [
+          {
+            "node": "Validate form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate form": {
+      "main": [
+        [
+          {
+            "node": "Form valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encrypt and save": {
+      "main": [
+        [
+          {
+            "node": "Render result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error page data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render result": {
+      "main": [
+        [
+          {
+            "node": "Send result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render errors": {
+      "main": [
+        [
+          {
+            "node": "Send errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error page data": {
+      "main": [
+        [
+          {
+            "node": "Render error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render error page": {
+      "main": [
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send error page": {
+      "main": [
+        [
+          {
+            "node": "Alert the agent team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form valid?": {
+      "main": [
+        [
+          {
+            "node": "Encrypt and save",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

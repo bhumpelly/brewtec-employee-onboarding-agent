@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrewTec Company Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f1ea;
+    --surface: #fffdf9;
+    --surface-2: #efe6da;
+    --ink: #2a1f19;
+    --ink-soft: #6b5a4e;
+    --line: #e2d6c7;
+    --brew: #6b3e26;
+    --brew-strong: #4f2b19;
+    --crema: #c98b4f;
+    --on-brew: #fffaf4;
+    --user-bubble: #6b3e26;
+    --bot-bubble: #fffdf9;
+    --ok: #2f7d4f;
+    --warn-bg: #fff4e0;
+    --warn-line: #e8b866;
+    --block-bg: #fdecea;
+    --block-line: #e39a92;
+    --shadow: 0 1px 2px rgba(42, 31, 25, .06), 0 8px 24px rgba(42, 31, 25, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17120f; --surface: #211a16; --surface-2: #2b221d; --ink: #f3ebe2; --ink-soft: #b8a798;
+      --line: #3a2f28; --brew: #c98b4f; --brew-strong: #e0a66c; --crema: #e0a66c; --on-brew: #1b130e;
+      --user-bubble: #8a5434; --bot-bubble: #241c17; --ok: #6cc28f;
+      --warn-bg: #33281a; --warn-line: #8a6a33; --block-bg: #3a2220; --block-line: #8f4c45;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17120f; --surface: #211a16; --surface-2: #2b221d; --ink: #f3ebe2; --ink-soft: #b8a798;
+    --line: #3a2f28; --brew: #c98b4f; --brew-strong: #e0a66c; --crema: #e0a66c; --on-brew: #1b130e;
+    --user-bubble: #8a5434; --bot-bubble: #241c17; --ok: #6cc28f;
+    --warn-bg: #33281a; --warn-line: #8a6a33; --block-bg: #3a2220; --block-line: #8f4c45;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.55 Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--surface);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .brand svg { width: 30px; height: 30px; }
+  .brand small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 12px; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-soft); }
+  .dot.ok { background: var(--ok); }
+  .dot.err { background: #c0392b; }
+
+  main {
+    max-width: 1180px; margin: 0 auto; padding: 28px 24px 40px;
+    display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start;
+  }
+  h1 {
+    font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 34px; line-height: 1.1;
+    margin: 0 0 8px; letter-spacing: -.01em;
+  }
+  .lead { color: var(--ink-soft); margin: 0 0 22px; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+  aside .panel { padding: 16px; margin-bottom: 16px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); margin: 0 0 10px; font-weight: 600; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tab {
+    border: 1px solid var(--line); background: transparent; border-radius: 999px;
+    padding: 5px 12px; font-size: 13px; cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--brew); color: var(--on-brew); border-color: var(--brew); }
+  .questions { display: grid; gap: 6px; }
+  .q {
+    text-align: left; border: 1px solid var(--line); background: var(--surface-2);
+    border-radius: 10px; padding: 9px 12px; cursor: pointer; font-size: 14px;
+    transition: border-color .15s, transform .15s;
+  }
+  .q:hover { border-color: var(--crema); transform: translateX(2px); }
+  .q:disabled { opacity: .5; cursor: default; transform: none; }
+
+  .code-row { display: flex; gap: 8px; }
+  .code-row input {
+    flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface-2); text-transform: uppercase; letter-spacing: .18em; font-weight: 600;
+  }
+  .btn {
+    border: 0; border-radius: 10px; padding: 9px 14px; cursor: pointer; font-weight: 600;
+    background: var(--brew); color: var(--on-brew);
+  }
+  .btn:hover { background: var(--brew-strong); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .hint { font-size: 12.5px; color: var(--ink-soft); margin: 8px 0 0; }
+  .privacy { font-size: 13px; color: var(--ink-soft); border-left: 3px solid var(--crema); padding: 2px 0 2px 10px; margin: 0; }
+
+  .chat { display: flex; flex-direction: column; height: min(78vh, 760px); min-height: 480px; overflow: hidden; }
+  .chat-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+  }
+  .chat-head strong { font-size: 15px; }
+  .ghost { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+  .ghost:hover { border-color: var(--crema); }
+
+  .messages { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
+  .msg { max-width: 82%; display: flex; flex-direction: column; gap: 6px; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .bubble { padding: 10px 14px; border-radius: 14px; word-wrap: break-word; overflow-wrap: anywhere; }
+  .msg.user .bubble { background: var(--user-bubble); color: #fffaf4; border-bottom-right-radius: 4px; }
+  .msg.bot .bubble { background: var(--bot-bubble); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.bot.handoff .bubble { background: var(--warn-bg); border-color: var(--warn-line); }
+  .msg.bot.blocked .bubble { background: var(--block-bg); border-color: var(--block-line); }
+  .msg.bot.error .bubble { background: var(--block-bg); border-color: var(--block-line); }
+  .bubble p { margin: 0 0 8px; } .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 20px; }
+  .bubble li { margin: 2px 0; }
+  .label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-soft); }
+  .sources { display: flex; flex-wrap: wrap; gap: 6px; }
+  .src {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 9px;
+    border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .src svg { width: 12px; height: 12px; }
+  .meta { font-size: 11.5px; color: var(--ink-soft); }
+
+  .typing { display: inline-flex; gap: 4px; padding: 12px 14px; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--crema); animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .15s; } .typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-4px); } }
+
+  .composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+  .composer textarea {
+    flex: 1; resize: none; min-height: 44px; max-height: 140px; padding: 11px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font: inherit; color: inherit;
+  }
+  .composer textarea:focus, .code-row input:focus { outline: 2px solid var(--crema); outline-offset: 1px; }
+
+  .empty { margin: auto; text-align: center; color: var(--ink-soft); max-width: 380px; }
+  .empty svg { width: 54px; height: 54px; margin-bottom: 8px; }
+
+  footer { text-align: center; font-size: 12.5px; color: var(--ink-soft); padding: 0 16px 28px; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 20px 16px 32px; }
+    .chat { height: 72vh; }
+    h1 { font-size: 28px; }
+    .msg { max-width: 92%; }
+    header.top { padding: 12px 16px; }
+    .status span.txt { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--brew)"/><path d="M9 12h12v6a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z" fill="var(--on-brew)"/><path d="M21 13.5h1.5a2.5 2.5 0 0 1 0 5H21" fill="none" stroke="var(--on-brew)" stroke-width="1.6"/><path d="M13 6.5c-.8 1 .8 2-.1 3M16.5 6.5c-.8 1 .8 2-.1 3" stroke="var(--crema)" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+    <div>BrewTec GmbH<small>Company assistant for all employees</small></div>
+  </div>
+  <div class="status" title="Connection to the assistant"><span class="dot" id="statusDot"></span><span class="txt" id="statusTxt">Ready</span></div>
+</header>
+
+<main>
+  <aside>
+    <h1>Ask BrewTec</h1>
+    <p class="lead">Answers come only from official company documents in the knowledge base. Every answer names its source.</p>
+
+    <section class="panel" aria-labelledby="topicsTitle">
+      <h2 id="topicsTitle">Popular questions</h2>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="questions" id="questions"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="codeTitle">
+      <h2 id="codeTitle">My onboarding</h2>
+      <form class="code-row" id="codeForm" autocomplete="off">
+        <input id="codeInput" maxlength="6" placeholder="CODE" aria-label="Your 6-character personal code" pattern="[A-Za-z0-9]{6}">
+        <button class="btn" type="submit">Check</button>
+      </form>
+      <p class="hint">New colleagues: enter the 6-character code from your welcome email to see your own tasks, device and account.</p>
+    </section>
+
+    <p class="privacy">You are chatting with an AI system that answers from BrewTec documents. Never type tax IDs, bank details, social security numbers or health details here. Such ID numbers are removed before they reach the assistant. Chats are kept for 90 days.</p>
+  </aside>
+
+  <section class="panel chat" aria-label="Chat">
+    <div class="chat-head">
+      <strong>BrewTec Assistant</strong>
+      <button class="ghost" id="newChat" type="button">New conversation</button>
+    </div>
+    <div class="messages" id="messages" aria-live="polite">
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="var(--surface-2)"/><path d="M14 20h17v8a7 7 0 0 1-7 7h-3a7 7 0 0 1-7-7z" fill="var(--crema)"/><path d="M31 22h2a3 3 0 0 1 0 6h-2" fill="none" stroke="var(--crema)" stroke-width="2"/></svg>
+        <p><strong>Hi, how can I help?</strong><br>Ask about leave, sickness, working time, IT, VPN, expenses, payroll, travel, parking, holidays or your first day. German works too.</p>
+      </div>
+    </div>
+    <form class="composer" id="composer">
+      <textarea id="input" rows="1" placeholder="Type your question" aria-label="Your question"></textarea>
+      <button class="btn" id="send" type="submit">Send</button>
+    </form>
+  </section>
+</main>
+
+<footer>BrewTec onboarding agent, capstone demo. Unanswered questions are passed to People Ops.</footer>
+
+<script>
+  // The published chat URL of workflow 3 (Company assistant chat node)
+  const CHAT_URL = 'http://localhost:5678/webhook/1ddcdf13-f58a-479a-9200-66b56dd65b09/chat';
+
+  const TOPICS = {
+    'HR': [
+      'How do I request vacation?',
+      'What happens if I am sick for more than six weeks?',
+      'How long must my break be after 6 hours of work?',
+      'How many days per week can I work remotely?'
+    ],
+    'IT': [
+      'How do I set up the VPN?',
+      'How do I contact the IT help desk?',
+      'Can I use the VPN on my private laptop?'
+    ],
+    'Finance': [
+      'When do I get my payslip?',
+      'Does BrewTec pay for the Deutschlandticket?',
+      'How do I submit an expense?'
+    ],
+    'Facilities': [
+      'Can I park at the Koeln office?',
+      'How do I book a meeting room?'
+    ],
+    'General': [
+      'What happens on my first day?',
+      'Which mandatory trainings do I need to do?',
+      'Wie melde ich einen Verstoss gegen den Verhaltenskodex?'
+    ]
+  };
+
+  const el = id => document.getElementById(id);
+  const messages = el('messages'), input = el('input'), send = el('send');
+  let busy = false;
+
+  // ---- session id (per browser tab, safe if storage is blocked) ----
+  function newId() {
+    return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '');
+  }
+  function getSession() {
+    try {
+      let s = sessionStorage.getItem('brewtec_session');
+      if (!s) { s = newId(); sessionStorage.setItem('brewtec_session', s); }
+      return s;
+    } catch (e) { return window.__session || (window.__session = newId()); }
+  }
+  function resetSession() {
+    const s = newId();
+    try { sessionStorage.setItem('brewtec_session', s); } catch (e) { window.__session = s; }
+  }
+
+  // ---- topic tabs ----
+  function renderTopics(active) {
+    const tabs = el('tabs'), qs = el('questions');
+    tabs.innerHTML = ''; qs.innerHTML = '';
+    Object.keys(TOPICS).forEach(name => {
+      const b = document.createElement('button');
+      b.className = 'tab'; b.type = 'button'; b.textContent = name;
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(name === active));
+      b.onclick = () => renderTopics(name);
+      tabs.appendChild(b);
+    });
+    TOPICS[active].forEach(q => {
+      const b = document.createElement('button');
+      b.className = 'q'; b.type = 'button'; b.textContent = q; b.disabled = busy;
+      b.onclick = () => ask(q);
+      qs.appendChild(b);
+    });
+  }
+
+  // ---- rendering ----
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function prettySource(file) {
+    const parts = file.replace(/\.md$/i, '').split('-');
+    const deptMap = { hr: 'HR', it: 'IT', finance: 'Finance', facilities: 'Facilities', general: 'General', onboarding: 'Onboarding' };
+    const dept = deptMap[parts[0]] ? deptMap[parts.shift()] : '';
+    let title = parts.join(' ');
+    title = title.charAt(0).toUpperCase() + title.slice(1);
+    return dept ? dept + ': ' + title : title;
+  }
+  function formatAnswer(text) {
+    const sources = [];
+    let body = text.replace(/\[([^\]]*\.md[^\]]*)\]/gi, (all, inner) => { const fs = inner.split(/[,;]/).map(s => s.trim()); if (!fs.every(f => /^[a-z0-9][a-z0-9\-_.]*\.md$/i.test(f))) return all; fs.forEach(f => { if (!sources.includes(f)) sources.push(f); }); return ''; });
+    const status = /\[onboarding status\]/i.test(body);
+    body = body.replace(/\[(onboarding status|code needed)\]/gi, '').trim();
+
+    const lines = esc(body).split(/\n/);
+    let html = '', list = null;
+    const close = () => { if (list) { html += '</' + list + '>'; list = null; } };
+    for (let raw of lines) {
+      const line = raw.trim();
+      const b = line.match(/^[-*•]\s+(.*)/), n = line.match(/^\d+[.)]\s+(.*)/);
+      if (b || n) {
+        const type = b ? 'ul' : 'ol';
+        if (list !== type) { close(); html += '<' + type + '>'; list = type; }
+        html += '<li>' + (b || n)[1] + '</li>';
+      } else {
+        close();
+        if (line) html += '<p>' + line + '</p>';
+      }
+    }
+    close();
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    return { html: html || '<p>' + esc(text) + '</p>', sources, status };
+  }
+  const docIcon = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5l3 3v10H4z" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>';
+
+  function addMessage(role, text, kind) {
+    el('empty')?.remove();
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + role + (kind ? ' ' + kind : '');
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    if (role === 'user') {
+      bubble.textContent = text;
+      wrap.appendChild(bubble);
+    } else {
+      const f = formatAnswer(text);
+      bubble.innerHTML = f.html;
+      if (kind === 'handoff') wrap.appendChild(Object.assign(document.createElement('span'), { className: 'label', textContent: 'Passed to People Ops' }));
+      if (kind === 'blocked') wrap.appendChild(Object.assign(document.createElement('span'), { className: 'label', textContent: 'Personal data removed' }));
+      wrap.appendChild(bubble);
+      if (f.sources.length || f.status) {
+        const s = document.createElement('div');
+        s.className = 'sources';
+        f.sources.forEach(file => { s.insertAdjacentHTML('beforeend', '<span class="src" title="' + esc(file) + '">' + docIcon + esc(prettySource(file)) + '</span>'); });
+        if (f.status) s.insertAdjacentHTML('beforeend', '<span class="src">' + docIcon + 'Your onboarding status</span>');
+        wrap.appendChild(s);
+      }
+    }
+    const meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    wrap.appendChild(meta);
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+  }
+  function showTyping() {
+    const t = document.createElement('div');
+    t.className = 'msg bot'; t.id = 'typing';
+    t.innerHTML = '<div class="bubble typing" aria-label="Assistant is typing"><span></span><span></span><span></span></div>';
+    messages.appendChild(t);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function setStatus(state, text) {
+    el('statusDot').className = 'dot' + (state ? ' ' + state : '');
+    el('statusTxt').textContent = text;
+  }
+  function setBusy(v) {
+    busy = v; send.disabled = v; input.disabled = v;
+    document.querySelectorAll('.q').forEach(b => b.disabled = v);
+  }
+
+  // ---- talk to n8n ----
+  function readReply(data) {
+    if (Array.isArray(data)) data = data[0] || {};
+    if (typeof data === 'string') return data;
+    return data.output ?? data.text ?? data.reply ?? data.message ?? '';
+  }
+  async function ask(question) {
+    question = question.trim();
+    if (!question || busy) return;
+    addMessage('user', question);
+    input.value = ''; autoGrow();
+    setBusy(true); showTyping(); setStatus('', 'Thinking');
+    try {
+      const res = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sendMessage', sessionId: getSession(), chatInput: question })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const raw = await res.text();
+      let reply;
+      try { reply = readReply(JSON.parse(raw)); } catch (e) { reply = raw; }
+      el('typing')?.remove();
+      if (!reply) throw new Error('empty reply');
+      const kind = /^I could not find a reliable answer/i.test(reply) ? 'handoff'
+                 : /^For your safety I removed/i.test(reply) ? 'blocked' : '';
+      addMessage('bot', reply, kind);
+      setStatus('ok', 'Connected');
+    } catch (err) {
+      el('typing')?.remove();
+      addMessage('bot', 'The assistant is not reachable right now (' + err.message + '). Check that n8n is running and workflow 3 is published, then try again.', 'error');
+      setStatus('err', 'Not reachable');
+    } finally {
+      setBusy(false); input.focus();
+    }
+  }
+
+  // ---- inputs ----
+  function autoGrow() { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 140) + 'px'; }
+  input.addEventListener('input', autoGrow);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
+  el('composer').addEventListener('submit', e => { e.preventDefault(); ask(input.value); });
+  el('codeForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const code = el('codeInput').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (code.length !== 6) { el('codeInput').focus(); return; }
+    el('codeInput').value = '';
+    ask('My personal code is ' + code + '. What do I still need to do?');
+  });
+  el('newChat').addEventListener('click', () => {
+    if (busy) return;
+    resetSession();
+    messages.innerHTML = '<div class="empty" id="empty"><p><strong>New conversation started.</strong><br>Ask your next question.</p></div>';
+  });
+
+  renderTopics('HR');
+  input.focus();
+</script>
+</body>
+</html>

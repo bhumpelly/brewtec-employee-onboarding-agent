@@ -1,0 +1,226 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BrewTec Onboarding ROI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,600..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one column ledger. Inputs on the left, results on the right from 900px up. */
+:root{
+  --bg:#f3f4f2; --panel:#fbfcfb; --line:#d7dbd8; --ink:#1d2120; --soft:#5d6561; --brass:#9a6b17; --brass-soft:#f6ecd8;
+  --good:#2d7650; --good-bg:#e2f0e7; --warn:#87590c; --warn-bg:#fbf0d9; --bad:#b03f2e; --bad-bg:#f8e4e1; --mute-bg:#e6e9e7;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif; --body:"Source Sans 3","Segoe UI",system-ui,sans-serif; --mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141716;--panel:#1b1f1e;--line:#2e3432;--ink:#e5e8e6;--soft:#9da5a1;--brass:#d9a54b;--brass-soft:#2d2515;
+  --good:#6fc493;--good-bg:#16291e;--warn:#e2b45e;--warn-bg:#2f2716;--bad:#e27c6c;--bad-bg:#331d1a;--mute-bg:#262b29;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141716;--panel:#1b1f1e;--line:#2e3432;--ink:#e5e8e6;--soft:#9da5a1;--brass:#d9a54b;--brass-soft:#2d2515;
+  --good:#6fc493;--good-bg:#16291e;--warn:#e2b45e;--warn-bg:#2f2716;--bad:#e27c6c;--bad-bg:#331d1a;--mute-bg:#262b29;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 60px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+h1{font:800 clamp(30px,4.6vw,46px)/1.05 var(--display);font-stretch:78%;margin:4px 0 8px;text-wrap:balance}
+h2{font:700 22px/1.2 var(--display);font-stretch:85%;margin:0 0 4px}
+.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+.lead{color:var(--soft);max-width:62ch;margin:0}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px 18px 8px;min-width:0}
+.sub{color:var(--soft);font-size:14px;margin:0 0 12px}
+.group{font:500 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--soft);margin:16px 0 6px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 128px 132px;gap:8px 10px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+.row label{font-size:15px;min-width:0}
+.row label small{display:block;color:var(--soft);font-size:12.5px;line-height:1.35}
+.row input,.row select{width:100%;font:500 14px var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+.row input:disabled{opacity:.55}
+@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr) 110px}.row .tag{grid-column:1/-1}}
+.tag{font:500 11px/1 var(--mono);padding:5px 7px;border-radius:999px;white-space:nowrap;justify-self:start}
+.measured{background:var(--good-bg);color:var(--good)}.assumed{background:var(--warn-bg);color:var(--warn)}.nrq{background:var(--mute-bg);color:var(--soft)}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--soft)}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.res{display:flex;flex-direction:column;gap:14px}
+.big{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.big div{border:1px solid var(--line);border-radius:6px;padding:12px;background:var(--bg)}
+.big b{display:block;font:800 30px/1.05 var(--display);font-stretch:78%;font-variant-numeric:tabular-nums}
+.big span{font-size:13px;color:var(--soft)}
+.big .hl{background:var(--brass-soft);border-color:var(--brass)}
+.f{font:13px/1.6 var(--mono);font-variant-numeric:tabular-nums;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--soft);text-align:right;padding:8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-size:13px}
+td.neg{color:var(--bad)}td.pos{color:var(--good)}
+tr.be td{background:var(--good-bg)}
+svg text{fill:var(--soft);font:11px var(--mono)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+.notes ul{margin:6px 0 10px;padding-left:18px}.notes li{margin:4px 0}
+.src{font-size:13px;color:var(--soft)}
+.src a{color:var(--brass)}
+</style>
+
+</head><body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">BrewTec GmbH · Employee Onboarding Journey Agent · all amounts in EUR</div>
+    <h1>Onboarding agent ROI</h1>
+    <p class="lead">Return on investment of replacing People Ops' manual coordination of new hires with the n8n onboarding agent. Change any input, every result and formula updates. Defaults are the capstone figures, each labelled measured, assumed or not reliably quantifiable.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card" aria-labelledby="h-in">
+      <h2 id="h-in">Inputs</h2>
+      <p class="sub">Problem: a two-person People Ops team coordinates every hire by e-mail and spreadsheet. Process owner: People Ops (HR).</p>
+
+      <div class="group">Baseline, per month</div>
+      <div class="row"><label for="vol">Monthly volume (new hires)<small>BrewTec scenario, 84 employees</small></label><input id="vol" type="number" min="0" step="1" value="4"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="mmin">Manual minutes per hire<small>Scope document: about 6 h of coordination per hire</small></label><input id="mmin" type="number" min="0" step="5" value="360"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="rate">Hourly labour cost, EUR<small>Destatis 2025 average cost per hour worked, used for HR</small></label><input id="rate" type="number" min="0" step="0.5" value="45"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="berr">Baseline error/rework rate, %<small>About 1 in 3 hires start without working access (scenario)</small></label><input id="berr" type="number" min="0" max="100" step="1" value="33"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="bcost">Cost per error/rework item, EUR<small>Lost first day, rushed IT work. No data</small></label><input id="bcost" type="number" min="0" step="10" value="" placeholder="not set" disabled><span class="tag nrq">not reliably quantifiable</span></div>
+      <div class="row"><label class="chk"><input id="useRework" type="checkbox"> Include rework costs anyway (enter both costs)</label><span></span><span></span></div>
+      <div class="row"><label for="bother">Other recurring baseline cost, EUR<small>Spreadsheets and e-mail already paid for</small></label><input id="bother" type="number" min="0" step="1" value="0"><span class="tag assumed">assumed</span></div>
+
+      <div class="group">After automation, per month</div>
+      <div class="row"><label for="amin">Human-review minutes per hire<small>Target 60 min: HR portal entry, approval click, hand-off answers. Not yet timed</small></label><input id="amin" type="number" min="0" step="5" value="60"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="aerr">Residual error/rework rate, %<small>Day-1 readiness check flags gaps. No production data</small></label><input id="aerr" type="number" min="0" max="100" step="1" value="" placeholder="not set" disabled><span class="tag nrq">not reliably quantifiable</span></div>
+      <div class="row"><label for="acost">Residual rework cost per item, EUR</label><input id="acost" type="number" min="0" step="10" value="" placeholder="not set" disabled><span class="tag nrq">not reliably quantifiable</span></div>
+      <div class="row"><label for="host">Hosting, EUR<small>Local Docker build on the laptop</small></label><input id="host" type="number" min="0" step="1" value="0"><span class="tag measured">measured</span></div>
+      <div class="row"><label for="qs">Assistant questions per month<small>84 employees × about 3, plus 40 weekly quality-check and 49 test questions</small></label><input id="qs" type="number" min="0" step="10" value="340"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="usdq">AI cost per question, USD<small>Measured in LangSmith on 2 Nov 2026: average of 10 answers, about 2,300 tokens (Gemini 2.5 Flash, OpenRouter)</small></label><input id="usdq" type="number" min="0" step="0.00001" value="0.00084"><span class="tag measured">measured</span></div>
+      <div class="row"><label for="fx">EUR per 1 USD<small>Stated conversion for the AI cost only, rounded up</small></label><input id="fx" type="number" min="0" step="0.01" value="0.90"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="tools">Other tools, EUR<small>Supabase, Notion, Discord, LangSmith, Gmail, Gemini embeddings, Cloudflare quick tunnel: free tiers used</small></label><input id="tools" type="number" min="0" step="1" value="0"><span class="tag measured">measured</span></div>
+      <div class="row"><label for="aother">Other recurring operating cost, EUR</label><input id="aother" type="number" min="0" step="1" value="0"><span class="tag assumed">assumed</span></div>
+
+      <div class="group">One-time implementation</div>
+      <div class="row"><label for="bh">Build and setup hours<small>Capstone build, 4 sprints. Replace with your own count</small></label><input id="bh" type="number" min="0" step="5" value="150"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="brate">Hourly labour rate, EUR</label><input id="brate" type="number" min="0" step="0.5" value="45"><span class="tag assumed">assumed</span></div>
+      <div class="row"><label for="ext">One-off external costs, EUR<small>No domain, licence or hardware bought</small></label><input id="ext" type="number" min="0" step="1" value="0"><span class="tag assumed">assumed</span></div>
+    </section>
+
+    <section class="res" aria-labelledby="h-out">
+      <div class="card">
+        <h2 id="h-out">Results</h2>
+        <p class="sub">Rework is excluded while its cost is not reliably quantifiable.</p>
+        <div class="big">
+          <div><span>1. Baseline monthly cost</span><b id="o1"></b></div>
+          <div><span>2. Automated monthly cost</span><b id="o2"></b></div>
+          <div class="hl"><span>3. Monthly savings</span><b id="o3"></b></div>
+          <div><span>4. One-time implementation</span><b id="o4"></b></div>
+          <div class="hl" style="grid-column:1/-1"><span>5. Payback period</span><b id="o5"></b></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Formulas with these inputs</h2>
+        <div class="f" id="formulas"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="h-proj">
+    <h2 id="h-proj">6. Twelve-month projection</h2>
+    <p class="sub">Cumulative net = monthly savings × month − one-time implementation cost. The green row is the first month at or above zero.</p>
+    <div id="chart"></div>
+    <div class="tbl"><table><thead><tr><th>Month</th><th>Savings this month</th><th>Cumulative savings</th><th>Cumulative net after build cost</th></tr></thead><tbody id="proj"></tbody></table></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-sens">
+    <h2 id="h-sens">7. Sensitivity: the largest assumption ±20%</h2>
+    <p class="sub">The largest assumption is the manual minutes per hire: it sets the baseline cost and so almost all of the savings. Monthly volume moves the result by the same proportion.</p>
+    <div class="tbl"><table><thead><tr><th>Case</th><th>Manual minutes per hire</th><th>Monthly savings</th><th>Payback</th><th>Net after 12 months</th></tr></thead><tbody id="sens"></tbody></table></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-lim">
+    <h2 id="h-lim">Limitations</h2>
+    <div class="notes">
+      <div><ul>
+        <li><b>Nothing here is measured in a real company.</b> BrewTec is fictional. The volume, the 6 hours per hire and the 1-in-3 access problem are scenario figures from the project scope.</li>
+        <li><b>The 60 minutes after automation is a target, not a measurement.</b> The time sheet <code>test_pack/time_saved_hires.csv</code> for 5 hires is still empty. Timing the 5 hires replaces the largest uncertainty on the automated side.</li>
+        <li><b>Rework is left out, not set to zero.</b> A hire without working access costs a lost day and rushed IT work, but there is no data on how much. Including it would raise the savings, so leaving it out is the cautious choice.</li>
+      </ul></div>
+      <div><ul>
+        <li><b>Assistant time savings are not counted.</b> People Ops answering fewer policy questions is real but unmeasured. Hand-offs to <code>#hr-helpdesk</code> are counted inside the 60 minutes.</li>
+        <li><b>Hosting is zero only because the build runs on a laptop.</b> Production in Germany (for example Hetzner, about 5 to 10 EUR a month) and a paid AI tier would add cost. Enter them to see the effect.</li>
+        <li><b>AI cost is in USD and converted at a stated 0.90.</b> Token counts per question are estimates. LangSmith traces show the real counts. At these volumes the AI cost is under 1 EUR a month and does not change the result.</li>
+        <li><b>Build hours</b> are an estimate of the capstone effort at the same labour rate. A company buying this from a contractor would pay a higher rate.</li>
+      </ul></div>
+    </div>
+    <p class="src">Sources: labour cost 45.00 EUR per hour worked in 2025, Destatis, reported by <a href="https://der-betrieb.de/meldungen/45-euro-pro-stunde-arbeitskosten-belasten-betriebe/" target="_blank" rel="noopener">Der Betrieb</a>. Gemini 2.5 Flash on OpenRouter USD 0.30 input and 2.50 output per 1M tokens, <a href="https://www.llmreference.com/model/gemini-2.5-flash/openrouter" target="_blank" rel="noopener">LLM Reference</a>.</p>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const eur = v => (v < 0 ? '−' : '') + '€' + Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = id => { const v = $(id).value.trim(); return v === '' ? null : Number(v); };
+
+function calc(over = {}) {
+  const g = k => (k in over ? over[k] : num(k));
+  const vol = g('vol'), mmin = g('mmin'), rate = g('rate'), amin = g('amin');
+  const useRework = $('useRework').checked;
+  const labourBase = vol * mmin / 60 * rate;
+  let reworkBase = null, reworkAuto = null;
+  if (useRework && g('berr') !== null && g('bcost') !== null) reworkBase = vol * g('berr') / 100 * g('bcost');
+  if (useRework && g('aerr') !== null && g('acost') !== null) reworkAuto = vol * g('aerr') / 100 * g('acost');
+  const reworkOn = reworkBase !== null && reworkAuto !== null;
+  const base = labourBase + (reworkOn ? reworkBase : 0) + g('bother');
+  const labourAuto = vol * amin / 60 * rate;
+  const apiEur = g('qs') * g('usdq') * g('fx');
+  const auto = labourAuto + (reworkOn ? reworkAuto : 0) + g('host') + apiEur + g('tools') + g('aother');
+  const save = base - auto;
+  const once = g('bh') * g('brate') + g('ext');
+  const payback = save > 0 ? once / save : null;
+  return { vol, mmin, rate, amin, labourBase, reworkBase, reworkAuto, reworkOn, base, labourAuto, apiEur, auto, save, once, payback };
+}
+
+function chart(r) {
+  const W = 760, H = 220, L = 70, R = 14, T = 14, B = 30;
+  const pts = Array.from({ length: 13 }, (_, m) => r.save * m - r.once);
+  const lo = Math.min(...pts, 0), hi = Math.max(...pts, 0);
+  const step = (hi - lo) / 4 || 1;
+  const x = m => L + (W - L - R) * m / 12, y = v => T + (H - T - B) * (hi - v) / (hi - lo || 1);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative net over 12 months">`;
+  for (let i = 0; i <= 4; i++) { const v = lo + step * i; s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v).toLocaleString('en-GB')}</text>`; }
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--soft)" stroke-width="1.2"/>`;
+  for (let m = 0; m <= 12; m += 2) s += `<text x="${x(m)}" y="${H - 8}" text-anchor="middle">M${m}</text>`;
+  const path = pts.map((v, m) => `${m ? 'L' : 'M'}${x(m).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  s += `<path d="${path} L${x(12)},${y(lo)} L${x(0)},${y(lo)} Z" fill="var(--brass-soft)" opacity=".7"/>`;
+  s += `<path d="${path}" fill="none" stroke="var(--brass)" stroke-width="2.4"/>`;
+  s += `<circle cx="${x(12)}" cy="${y(pts[12])}" r="4" fill="var(--brass)"/>`;
+  return s + '</svg>';
+}
+
+function render() {
+  const missing = ['vol', 'mmin', 'rate', 'amin', 'bother', 'host', 'qs', 'usdq', 'fx', 'tools', 'aother', 'bh', 'brate', 'ext'].filter(k => num(k) === null);
+  if (missing.length) { $('formulas').textContent = 'Fill in: ' + missing.join(', ') + '. Missing values are not treated as zero.'; return; }
+  const r = calc();
+  $('o1').textContent = eur(r.base); $('o2').textContent = eur(r.auto);
+  $('o3').textContent = eur(r.save); $('o4').textContent = eur(r.once);
+  $('o5').textContent = r.payback === null ? 'No payback: savings are not positive' : r.payback.toFixed(1) + ' months';
+  const rw = r.reworkOn ? `${eur(r.reworkBase)}` : 'not reliably quantifiable, excluded';
+  const rwa = r.reworkOn ? `${eur(r.reworkAuto)}` : 'not reliably quantifiable, excluded';
+  $('formulas').textContent =
+`Manual labour       = ${r.vol} hires × ${r.mmin} min ÷ 60 × €${r.rate} = ${eur(r.labourBase)}
+Baseline rework     = ${rw}
+1. Baseline         = ${eur(r.labourBase)} + rework + €${num('bother')} = ${eur(r.base)}
+
+Review labour       = ${r.vol} hires × ${r.amin} min ÷ 60 × €${r.rate} = ${eur(r.labourAuto)}
+Residual rework     = ${rwa}
+AI (API) cost       = ${num('qs')} questions × $${num('usdq')} × ${num('fx')} EUR/USD = ${eur(r.apiEur)}
+2. Automated        = ${eur(r.labourAuto)} + rework + €${num('host')} hosting + ${eur(r.apiEur)} + €${num('tools')} tools + €${num('aother')} = ${eur(r.auto)}
+
+3. Monthly savings  = ${eur(r.base)} − ${eur(r.auto)} = ${eur(r.save)}
+4. One-time cost    = ${num('bh')} h × €${num('brate')} + €${num('ext')} = ${eur(r.once)}
+5. Payback          = ${eur(r.once)} ÷ ${eur(r.save)} = ${r.payback === null ? 'not defined' : r.payback.toFixed(2) + ' months'}`;
+  let rows = '', hit = false;
+  for (let m = 1; m <= 12; m++) {
+    const net = r.save * m - r.once, be = !hit && net >= 0; if (be) hit = true;
+    rows += `<tr${be ? ' class="be"' : ''}><td>Month ${m}</td><td>${eur(r.save)}</td><td>${eur(r.save * m)}</td><td class="${net < 0 ? 'neg' : 'pos'}">${eur(net)}</td></tr>`;
+  }
+  $('proj').innerHTML = rows; $('chart').innerHTML = chart(r);
+  const cases = [['20% worse (fewer manual minutes)', r.mmin * 0.8], ['As entered', r.mmin], ['20% better (more manual minutes)', r.mmin * 1.2]];
+  $('sens').innerHTML = cases.map(([n, mm]) => { const c = calc({ mmin: mm });
+    return `<tr><td>${n}</td><td>${Math.round(mm)}</td><td>${eur(c.save)}</td><td>${c.payback === null ? 'none' : c.payback.toFixed(1) + ' months'}</td><td class="${c.save * 12 - c.once < 0 ? 'neg' : 'pos'}">${eur(c.save * 12 - c.once)}</td></tr>`; }).join('');
+}
+$('useRework').addEventListener('change', e => { ['bcost', 'aerr', 'acost'].forEach(id => $(id).disabled = !e.target.checked); render(); });
+document.querySelectorAll('input').forEach(i => i.addEventListener('input', render));
+render();
+</script>
+</body></html>

@@ -1,0 +1,23 @@
+# Jira MCP server. Optional, set up last.
+# Start from this folder:
+#   docker compose -f docker-compose.mcp.yml --env-file .env up -d
+# Simpler: use the docker run command in README step 4.
+# n8n reaches the server at http://host.docker.internal:9000/mcp
+
+services:
+  mcp-atlassian:
+    image: ghcr.io/sooperset/mcp-atlassian:latest
+    restart: unless-stopped
+    command: ["--transport", "streamable-http", "--port", "9000"]
+    environment:
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_USERNAME=${JIRA_USERNAME}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      # Least privilege: the agent can only create issues, nothing else.
+      - ENABLED_TOOLS=jira_create_issue
+      # Newer mcp-atlassian versions reject requests without a per-user login unless this is on.
+      # n8n sends no user login, so the server must use the Jira login above.
+      - ALLOW_GLOBAL_CRED_FALLBACK=true
+      - TOOLSETS=all
+    ports:
+      - "9000:9000"

@@ -1,0 +1,233 @@
+{
+  "name": "9 - Mock Workday (New_Hires report API)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 9. Mock Workday\nStands in for the company's Workday tenant, because Workday has no free sandbox. It serves the custom report New_Hires the way Workday RaaS does: GET with format=json, Bearer token, answer { Report_Entry: [...] } with Workday field names.\n\nHR creates hires in the Supabase table hris_employees (the Workday side). status hired = Successfully Completed, offer_signed = In Progress, withdrawn = Rescinded.\n\n**Setup**\n1. Postgres credential on Read workers.\n2. Change api_token in Config, and the same value in workflow 8.\n3. Publish. Test in the browser: a call without the token answers 401.\n\nThe report only contains what onboarding needs: no salary, birth date, bank or tax data.",
+        "height": 460,
+        "width": 460,
+        "color": 4
+      },
+      "id": "9ded569e-a6c7-4b43-9dc8-535a3b3aa6fc",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "path": "workday/ccx/service/customreport2/brewtec/ISU_Onboarding/New_Hires",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f8bec4de-3030-4ceb-aa0f-1b9cbdc4e711",
+      "name": "Workday report API",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        560,
+        288
+      ],
+      "webhookId": "f32f3e97-e22b-4bee-80a9-f0fe144f533a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4235b49f-1ad8-4bcc-8348-857f82c3a37f",
+              "name": "api_token",
+              "value": "brewtec-demo-token-change-me",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "8095574b-02fa-4247-909c-3cc79da7fd46",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1dd8f36d-a711-4139-9e1f-afe6ad387a6d",
+              "leftValue": "={{ ($json.headers?.authorization ?? '') === 'Bearer ' + $json.api_token }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "70fb3a6a-59dc-4fa9-b10b-6c0aa7e0c709",
+      "name": "Valid token?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1008,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_client', message: 'Missing or wrong Bearer token' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "7dadcf33-77c2-4a6d-a4ee-8c684e355fe0",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1232,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Report prompt: hires with a start date from 7 days ago onwards\nselect hris_id as \"Worker_ID\",\n       first_name as \"Legal_Name_First_Name\", last_name as \"Legal_Name_Last_Name\",\n       private_email as \"Personal_Email\", coalesce(work_email, '') as \"Work_Email\",\n       department || ' (' || manager_name || ')' as \"Supervisory_Organization\",\n       job_title as \"Business_Title\", manager_name as \"Manager\", manager_email as \"Manager_Email\",\n       'BrewTec ' || site as \"Location\", to_char(start_date, 'YYYY-MM-DD') as \"Hire_Date\",\n       case status when 'hired' then 'Successfully Completed'\n                   when 'offer_signed' then 'In Progress' else 'Rescinded' end as \"Business_Process_Status\",\n       coalesce(notes, '') as \"Comment\"\nfrom hris_employees\nwhere start_date >= current_date - 7\norder by start_date;",
+        "options": {}
+      },
+      "id": "868a4396-0f21-4c9b-848f-5cb0e8a4a484",
+      "name": "Read workers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1232,
+        192
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build report  (Workflow 9, mock Workday, JavaScript, Run Once for All Items)\n// Shapes the rows like a Workday custom report served as a web service (RaaS, format=json):\n// { \"Report_Entry\": [ { \"Worker_ID\": ..., \"Legal_Name_First_Name\": ..., ... } ] }\n// The report only exposes what onboarding needs (data minimisation): no salary, no birth date,\n// no bank or tax data.\nconst rows = $input.all().map(i => i.json).filter(r => r && r.Worker_ID);\nreturn [{ json: {\n  Report_Entry: rows.map(r => ({\n    Worker_ID: String(r.Worker_ID),\n    Legal_Name_First_Name: r.Legal_Name_First_Name,\n    Legal_Name_Last_Name: r.Legal_Name_Last_Name,\n    Personal_Email: r.Personal_Email,\n    Work_Email: r.Work_Email || '',\n    Supervisory_Organization: r.Supervisory_Organization,\n    Business_Title: r.Business_Title,\n    Manager: r.Manager,\n    Manager_Email: r.Manager_Email,\n    Location: r.Location,\n    Hire_Date: r.Hire_Date,\n    Business_Process: 'Hire Employee',\n    Business_Process_Status: r.Business_Process_Status,\n    Comment: r.Comment || '',\n  })),\n} }];\n"
+      },
+      "id": "c29a6bd1-e1ce-4292-a4c3-5705969fb333",
+      "name": "Build report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "037758de-32b1-4102-8e06-4d6aae2a7a6a",
+      "name": "Respond with report",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        192
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workday report API": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Valid token?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read workers": {
+      "main": [
+        [
+          {
+            "node": "Build report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report": {
+      "main": [
+        [
+          {
+            "node": "Respond with report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid token?": {
+      "main": [
+        [
+          {
+            "node": "Read workers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

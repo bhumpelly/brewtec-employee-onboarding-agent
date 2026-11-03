@@ -1,0 +1,588 @@
+{
+  "name": "2 - BrewTec knowledge base ingestion (Notion to Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 2. Knowledge base ingestion\nReads every published page of the BrewTec Knowledge Base in Notion, splits each page at its headings and stores one chunk per section in Supabase with Gemini embeddings (3072 dims).\n\n**Setup**\n1. Paste the database link into **Config**.\n2. Notion credential on the two HTTP nodes. Read content is enough.\n3. Postgres credential on the two Postgres nodes. Supabase API credential (service_role key) on the vector store.\n4. Run ingestion rebuilds everything at once.\n\n**Nightly update**\nAt 02:00 it asks Notion for pages edited since the last ingestion. Only if something changed does it rebuild the table. Publish the workflow to switch the schedule on.",
+        "height": 460,
+        "width": 460,
+        "color": 4
+      },
+      "id": "1d312ab8-a27c-44fb-b7dd-3c77418d3f69",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "69449688-6914-449b-b35d-647b2c449f64",
+      "name": "Run ingestion",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        592,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "46cc2e50-7eb7-42b5-bbf7-ec129b14ae90",
+      "name": "Every night 02:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        592,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3e96a90d-2cce-413a-99d6-5773c2eb9065",
+              "name": "notion_database_id",
+              "value": "https://www.notion.so/PASTE-YOUR-DATABASE-LINK",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "26396e48-e4ef-4e05-82d4-4e52df8e767b",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        816,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select to_char(coalesce(max(created_at), '1970-01-01'::timestamptz) at time zone 'UTC'\n               - interval '2 minutes', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') as last_run\nfrom automation_log\nwhere workflow = 'wf2' and step = 'ingestion';",
+        "options": {}
+      },
+      "id": "a6e78f11-0dd3-418f-a9ab-a6dbf218a048",
+      "name": "Last ingestion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1040,
+        304
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('Config').first().json.notion_database_id.split('?')[0].replace(/-/g, '').slice(-32) }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ page_size: 100, filter: { timestamp: 'last_edited_time', last_edited_time: { after: $json.last_run } } }) }}",
+        "options": {}
+      },
+      "id": "d59a459e-ec19-41e9-ba87-a661208e25dc",
+      "name": "Notion changes since last run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1248,
+        304
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3185d270-6284-460c-bcfa-3b4ef4cfb6df",
+              "leftValue": "={{ ($json.results || []).length > 0 || $('Run ingestion').isExecuted }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "2f4dee48-7c92-4cee-86df-caac198f2f49",
+      "name": "Changed or manual run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "40d43d08-5aee-4747-b53f-4aaee34de305",
+      "name": "Nothing changed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1696,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with d as (delete from handbook_documents where coalesce(metadata->>'run_id','') <> '{{ $execution.id }}' returning 1)\nselect count(*)::int as deleted from d;",
+        "options": {}
+      },
+      "id": "ebccdb2e-fa3c-4c6d-8d27-fae257555d24",
+      "name": "Clear knowledge base",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3232,
+        304
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.notion.com/v1/databases/{{ $('Config').first().json.notion_database_id.split('?')[0].replace(/-/g, '').slice(-32) }}/query",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"page_size\": 100\n}",
+        "options": {}
+      },
+      "id": "20b44053-aa17-414a-a4b5-b930479a3188",
+      "name": "Query Notion database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        288
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Rows  (Workflow 2, JavaScript, Run Once for All Items)\n// Flattens the Notion database query into one item per page.\n// Removes the https:// that Notion adds to URL columns, so sources stay clean slugs.\nfunction readProp(prop) {\n  if (!prop || typeof prop !== 'object') return '';\n  const t = prop.type;\n  if (t === 'title' || t === 'rich_text') return (prop[t] || []).map(r => r.plain_text || '').join('');\n  if (t === 'url') return prop.url || '';\n  if (t === 'select' || t === 'status') return (prop[t] || {}).name || '';\n  if (t === 'multi_select') return (prop[t] || []).map(o => o.name || '').join(', ');\n  if (t === 'files') return (prop.files || [])[0]?.name || '';\n  if (t === 'unique_id') { const u = prop.unique_id || {}; return `${u.prefix || ''}-${u.number}`.replace(/^-|-$/g, ''); }\n  return '';\n}\nfunction find(props, pattern, ptype) {\n  for (const [name, prop] of Object.entries(props)) {\n    if (ptype && prop?.type === ptype) return prop;\n    if (pattern && pattern.test(name)) return prop;\n  }\n  return null;\n}\nconst cleanFile = v => (v || '').trim().replace(/^https?:\\/\\//i, '').replace(/^\\/+|\\/+$/g, '').trim();\nconst PREFIX_TO_DEPT = { HR: 'HR', IT: 'IT', FIN: 'Finance', FAC: 'Facilities', GEN: 'General', ONB: 'Onboarding' };\n\nconst out = [];\nconst skipped = [];\nfor (const item of $input.all()) {\n  for (const page of item.json.results || []) {\n    if (page.archived || page.in_trash) continue;\n    const props = page.properties || {};\n    const title = readProp(find(props, null, 'title'));\n    const docId = readProp(find(props, /doc\\s*_?id/i));\n    let department = readProp(find(props, /department/i));\n    let file = cleanFile(readProp(find(props, /file/i)));\n    const status = readProp(find(props, /^status$/i));\n\n    if (status && !['published', 'live', 'approved'].includes(status.toLowerCase())) {\n      skipped.push(`${title}: status ${status}`);\n      continue;\n    }\n    if (!department && docId) department = PREFIX_TO_DEPT[docId.split('-')[0].toUpperCase()] || 'General';\n    if (!file) file = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.md';\n\n    out.push({ json: { page_id: page.id, title, doc_id: docId, department: department || 'General', file, status } });\n  }\n}\nif (!out.length) throw new Error('No published pages found in the Notion database. Skipped: ' + skipped.join('; '));\nreturn out;\n"
+      },
+      "id": "30c3e56e-1d7e-4717-8183-072e2f73427b",
+      "name": "Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.notion.com/v1/blocks/{{ $json.page_id }}/children?page_size=100",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "notionApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cafb3f0d-c787-419e-ad91-b320f142ad77",
+      "name": "Get page blocks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2272,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "baa69e1d-9731-4e34-93a7-c02081874956",
+      "name": "Combine",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Chunk by section  (Workflow 2, JavaScript, Run Once for All Items)\n// Turns the Notion blocks of each page into one chunk per heading.\n// Text before the first heading becomes the \"Overview\" chunk.\nconst rich = block => ((block[block.type] || {}).rich_text || []).map(r => r.plain_text || '').join('').trim();\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  if (!j.page_id) continue;\n  const title = j.title || '';\n  const sections = [];\n  let current = { section: 'Overview', lines: [] };\n  let number = 0;\n  for (const block of j.results || []) {\n    const t = block.type;\n    const txt = rich(block);\n    if (t === 'heading_1' || t === 'heading_2') {\n      if (current.lines.length) sections.push(current);\n      current = { section: txt || 'Section', lines: [] };\n      number = 0;\n      continue;\n    }\n    if (!txt) continue;\n    if (t === 'numbered_list_item') { number += 1; current.lines.push(`${number}. ${txt}`); continue; }\n    number = 0;\n    if (t === 'heading_3') current.lines.push(`### ${txt}`);\n    else if (t === 'bulleted_list_item' || t === 'to_do') current.lines.push(`- ${txt}`);\n    else if (t === 'quote') current.lines.push(`> ${txt}`);\n    else current.lines.push(txt);\n  }\n  if (current.lines.length) sections.push(current);\n\n  sections.forEach((s, i) => out.push({ json: {\n    content: `${title} (${j.doc_id || ''}, ${j.department || ''})\\nSection: ${s.section}\\n\\n${s.lines.join('\\n')}`,\n    source: j.file || '',\n    title,\n    doc_id: j.doc_id || '',\n    department: j.department || '',\n    section: s.section,\n    chunk_index: i,\n    notion_page_id: j.page_id,\n    page_truncated: Boolean(j.has_more),\n  } }));\n}\nif (!out.length) throw new Error('No text found in any Notion page. Check that the pages have content.');\nreturn out;\n"
+      },
+      "id": "a431172e-574e-4da9-a7fc-5ac681a858b5",
+      "name": "Chunk by section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "handbook_documents",
+          "mode": "list",
+          "cachedResultName": "handbook_documents"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "id": "03516972-069b-4ff4-b230-52ca4395c8ab",
+      "name": "Supabase knowledge base",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.1,
+      "position": [
+        2912,
+        304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "85e4b419-b546-4aaf-89f1-6f129ece17c9",
+      "name": "Gemini embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2912,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.content }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "run_id",
+                "value": "={{ $execution.id }}"
+              },
+              {
+                "name": "title",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "doc_id",
+                "value": "={{ $json.doc_id }}"
+              },
+              {
+                "name": "department",
+                "value": "={{ $json.department }}"
+              },
+              {
+                "name": "section",
+                "value": "={{ $json.section }}"
+              },
+              {
+                "name": "notion_page_id",
+                "value": "={{ $json.notion_page_id }}"
+              },
+              {
+                "name": "source",
+                "value": "={{ $json.source  }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "c7d89a3c-0617-476d-878d-5681826414cd",
+      "name": "Document loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        3056,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 4000,
+        "options": {}
+      },
+      "id": "e0a01dd8-96e8-4ab1-a0aa-5ac546764b3d",
+      "name": "Text splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        3056,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- A rebuilt knowledge base can change answers, so cached answers are cleared too\nwith d as (delete from answer_cache returning 1)\ninsert into automation_log (workflow, step, status, detail)\nselect 'wf2', 'ingestion', 'ok', format('%s chunks in handbook_documents, %s cached answers cleared',\n       (select count(*) from handbook_documents), (select count(*) from d))\nreturning detail;",
+        "options": {}
+      },
+      "id": "c970f30d-e2b7-4904-af61-4e5e8b5d3bdd",
+      "name": "Log ingestion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3456,
+        304
+      ],
+      "executeOnce": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every night 02:00": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Last ingestion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Last ingestion": {
+      "main": [
+        [
+          {
+            "node": "Notion changes since last run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notion changes since last run": {
+      "main": [
+        [
+          {
+            "node": "Changed or manual run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Changed or manual run?": {
+      "main": [
+        [
+          {
+            "node": "Query Notion database",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nothing changed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ingestion": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear knowledge base": {
+      "main": [
+        [
+          {
+            "node": "Log ingestion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Notion database": {
+      "main": [
+        [
+          {
+            "node": "Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rows": {
+      "main": [
+        [
+          {
+            "node": "Get page blocks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk by section": {
+      "main": [
+        [
+          {
+            "node": "Supabase knowledge base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase knowledge base": {
+      "main": [
+        [
+          {
+            "node": "Clear knowledge base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine": {
+      "main": [
+        [
+          {
+            "node": "Chunk by section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get page blocks": {
+      "main": [
+        [
+          {
+            "node": "Combine",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Gemini embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase knowledge base",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase knowledge base",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Document loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

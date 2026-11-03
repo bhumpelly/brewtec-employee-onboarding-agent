@@ -1,0 +1,160 @@
+{
+  "name": "6 - BrewTec error alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 6. Error alerts\nRuns whenever another BrewTec workflow fails. Posts what failed and where to #brewtec-agent-dev-ops and writes it to automation_log, so no failure stays silent.\n\n**Setup**\n1. Paste the #brewtec-agent-dev-ops webhook into **Config**. Postgres credential on **Log failure**.\n2. Save. It does not need to be published.\n3. In workflows 1, 2, 3, 4, 5 and 7: Settings > Error workflow > 6 - BrewTec error alerts.",
+        "height": 360,
+        "width": 460,
+        "color": 4
+      },
+      "id": "14903132-1999-45b6-a9e7-d438209d066f",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -48
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "eb406d57-f979-406c-be0e-935840408921",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        416,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ae20719f-38e9-4d26-8d00-7342c0bd0847",
+              "name": "discord_ops_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-AGENT-DEV-OPS",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "ae720fca-eec0-48e5-aa03-a5b263def6d4",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        640,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build alert  (Workflow 6, JavaScript, Run Once for All Items)\n// Turns n8n's error event into a short, readable alert. Works for node errors and trigger errors.\nconst j = $input.first().json || {};\nconst exec = j.execution || {};\nconst wf = j.workflow || {};\nconst trig = j.trigger || {};\nconst err = exec.error || trig.error || {};\nconst node = exec.lastNodeExecuted || (err.node && err.node.name) || 'unknown node';\nconst message = String(err.message || err.description || 'unknown error').replace(/\\s+/g, ' ').slice(0, 600);\nconst where = exec.url || (exec.id ? `execution ${exec.id}` : 'see the Executions tab');\n\n// A hire stopped by an onboarding rule (workflow 1, \"Stop with reason\") is expected, not a failure.\nconst ruleStop = node === 'Stop with reason';\nconst text = ruleStop\n  ? `**Hire stopped by an onboarding rule: ${wf.name || 'unknown workflow'}**\\n` +\n    `Reason: ${message.replace(/^New hire not started:\\s*/, '')}\\nWhere: ${where}\\n` +\n    'Expected behaviour, nothing is broken. People Ops sees the reason in the HR portal and handles the hire manually.'\n  : `**Workflow failed: ${wf.name || 'unknown workflow'}**\\n` +\n    `Node: ${node}\\nError: ${message}\\nWhere: ${where}\\n` +\n    'Nothing after this node ran. Open the execution in n8n, fix the cause and run it again.';\n\nreturn [{ json: {\n  workflow_name: wf.name || 'unknown workflow',\n  node,\n  message,\n  discord_message: text.length > 1900 ? text.slice(0, 1897) + '...' : text,\n} }];\n"
+      },
+      "id": "63fe8e7d-e484-479b-bbca-bac9f227314b",
+      "name": "Build alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_ops_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.discord_message }) }}",
+        "options": {}
+      },
+      "id": "3630e078-4e81-441e-ac51-78d474192ab3",
+      "name": "Post alert to #agent-dev-ops",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1104,
+        272
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into automation_log (workflow, step, status, detail)\nvalues ('wf6', 'workflow_failed', 'alert', left($1, 1000))\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.workflow_name + ' | ' + $json.node + ' | ' + $json.message ] }}"
+        }
+      },
+      "id": "f9f2b17a-7a3f-447a-8369-b8380ab3f00c",
+      "name": "Log failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        496
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Build alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build alert": {
+      "main": [
+        [
+          {
+            "node": "Post alert to #agent-dev-ops",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

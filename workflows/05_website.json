@@ -1,0 +1,403 @@
+{
+  "name": "5 - BrewTec website",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 5. BrewTec website\nServes the company homepage with the employee assistant at\n`/webhook/brewtec`\n\nThe chat inside the page calls workflow 3 at the same address, so it works on localhost and through a Cloudflare tunnel without changes.\n\n**Setup**\nNo credentials. Click Publish.\nOpen http://localhost:5678/webhook/brewtec\n\nTo change the page, edit the HTML in **Send website**.",
+        "height": 340,
+        "width": 420,
+        "color": 4
+      },
+      "id": "96eabb21-a7e8-49b4-9e85-1ed762a68360",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "path": "brewtec",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7f4453e5-1b97-49e4-bbea-3b506a88d234",
+      "name": "Website address",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        192,
+        16
+      ],
+      "webhookId": "68989da2-209f-4a13-92f1-2295822beb5c"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n<title>BrewTec GmbH</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>\n  /* Layout: industrial spec-sheet. Graphite ink on cool steel paper, one brass accent, condensed display type. */\n  :root {\n    --paper: #eef0ee;\n    --panel: #f8f9f8;\n    --steel: #d5d9d6;\n    --ink: #1c1f1e;\n    --ink-soft: #59605d;\n    --brass: #a8761c;\n    --brass-ink: #fffaf0;\n    --graphite: #232726;\n    --on-graphite: #e9ece9;\n    --user: #2f3533;\n    --warn-bg: #fbf1dc;\n    --warn-line: #d9aa4c;\n    --stop-bg: #f9e6e3;\n    --stop-line: #d08a80;\n    --ok: #2e7a4e;\n    --bad: #b5402f;\n    --display: \"Archivo\", \"Arial Narrow\", Arial, sans-serif;\n    --body: \"Source Sans 3\", \"Segoe UI\", system-ui, sans-serif;\n    --mono: \"JetBrains Mono\", Consolas, monospace;\n    color-scheme: light;\n  }\n  @media (prefers-color-scheme: dark) {\n    :root:not([data-theme=\"light\"]) {\n      --paper: #141716; --panel: #1b1f1e; --steel: #2c3230; --ink: #e6e9e7; --ink-soft: #9ba39f;\n      --brass: #d6a24a; --brass-ink: #1a1408; --graphite: #0d0f0e; --on-graphite: #e6e9e7; --user: #3a423f;\n      --warn-bg: #2f2716; --warn-line: #8c6c2b; --stop-bg: #331d1a; --stop-line: #8a4a40; --ok: #6cc28f; --bad: #e07a6a;\n      color-scheme: dark;\n    }\n  }\n  :root[data-theme=\"dark\"] {\n    --paper: #141716; --panel: #1b1f1e; --steel: #2c3230; --ink: #e6e9e7; --ink-soft: #9ba39f;\n    --brass: #d6a24a; --brass-ink: #1a1408; --graphite: #0d0f0e; --on-graphite: #e6e9e7; --user: #3a423f;\n    --warn-bg: #2f2716; --warn-line: #8c6c2b; --stop-bg: #331d1a; --stop-line: #8a4a40; --ok: #6cc28f; --bad: #e07a6a;\n    color-scheme: dark;\n  }\n\n  * { box-sizing: border-box; }\n  [hidden] { display: none !important; }\n  html, body { margin: 0; }\n  body { background: var(--paper); color: var(--ink); font: 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; }\n  a { color: inherit; }\n  button, input, textarea { font: inherit; color: inherit; }\n  :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }\n  .wrap { max-width: 1160px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }\n  h1, h2, h3 { font-family: var(--display); font-stretch: 78%; line-height: 1.02; letter-spacing: -.01em; margin: 0; text-wrap: balance; }\n  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); }\n  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }\n\n  /* nav */\n  .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--steel); }\n  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 14px; }\n  .logo { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--display); font-stretch: 75%; letter-spacing: .02em; text-decoration: none; }\n  .logo svg { width: 28px; height: 28px; }\n  .nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 15px; }\n  .nav ul a { text-decoration: none; color: var(--ink-soft); }\n  .nav ul a:hover { color: var(--ink); }\n  .btn { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 4px; padding: 11px 18px; font-weight: 600; cursor: pointer; text-decoration: none; background: var(--brass); color: var(--brass-ink); }\n  .btn:hover { filter: brightness(1.06); }\n  .btn.line { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }\n\n  /* hero */\n  .hero { padding-block: 72px 56px; border-bottom: 1px solid var(--steel); }\n  .hero .wrap { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: end; }\n  .hero h1 { font-size: clamp(46px, 7.2vw, 96px); font-weight: 800; margin: 14px 0 22px; }\n  .hero p.lead { font-size: 20px; color: var(--ink-soft); max-width: 34em; margin: 0 0 28px; }\n  .hero .actions { display: flex; flex-wrap: wrap; gap: 12px; }\n  .spec { background: var(--graphite); color: var(--on-graphite); border-radius: 6px; padding: 24px; }\n  .spec .eyebrow { color: var(--brass); }\n  .spec dl { display: grid; grid-template-columns: 1fr auto; margin: 16px 0 0; }\n  .spec dt, .spec dd { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.12); margin: 0; }\n  .spec dt { color: #a9b0ad; font-size: 15px; }\n  .spec dd { font: 500 22px/1.2 var(--mono); text-align: right; font-variant-numeric: tabular-nums; }\n  .spec dd small { font-size: 13px; color: #a9b0ad; }\n\n  section { padding-block: 72px; }\n  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 32px; }\n  .head h2 { font-size: clamp(34px, 4.6vw, 56px); font-weight: 800; margin-top: 10px; }\n  .head p { max-width: 30em; color: var(--ink-soft); margin: 0; }\n\n  /* products */\n  .products { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--steel); border: 1px solid var(--steel); }\n  .product { background: var(--panel); padding: 26px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }\n  .product canvas { width: 100%; height: 150px; display: block; }\n  .product h3 { font-size: 30px; font-weight: 700; }\n  .product p { margin: 0; color: var(--ink-soft); }\n  .product .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }\n  .tag { font: 500 12px/1 var(--mono); padding: 6px 8px; border: 1px solid var(--steel); border-radius: 3px; color: var(--ink-soft); }\n\n  /* service */\n  .service { background: var(--graphite); color: var(--on-graphite); }\n  .service .head p { color: #a9b0ad; }\n  .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }\n  .promise div { border-top: 2px solid var(--brass); padding-top: 18px; }\n  .promise strong { display: block; font: 800 46px/1 var(--display); font-stretch: 75%; margin-bottom: 8px; }\n  .promise p { margin: 0; color: #c3c9c6; }\n\n  /* sites */\n  .sites { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }\n  .site { border: 1px solid var(--steel); background: var(--panel); border-radius: 6px; padding: 26px; }\n  .site h3 { font-size: 34px; font-weight: 700; margin: 8px 0 10px; }\n  .site p { margin: 0 0 12px; color: var(--ink-soft); }\n  .site ul { margin: 0; padding-left: 18px; }\n\n  /* careers / employees */\n  .employees .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }\n  .card { border: 1px solid var(--steel); background: var(--panel); border-radius: 6px; padding: 26px; display: flex; flex-direction: column; gap: 14px; }\n  .card h3 { font-size: 30px; font-weight: 700; }\n  .card p { margin: 0; color: var(--ink-soft); }\n  .depts { display: flex; flex-wrap: wrap; gap: 8px; }\n  .depts span { padding: 6px 12px; border-radius: 999px; background: var(--steel); font-size: 14px; }\n  .askrow { display: flex; flex-wrap: wrap; gap: 8px; }\n  .chip { border: 1px solid var(--steel); background: var(--paper); border-radius: 999px; padding: 7px 13px; font-size: 14px; cursor: pointer; }\n  .chip:hover { border-color: var(--brass); }\n\n  footer { border-top: 1px solid var(--steel); padding-block: 36px 110px; font-size: 15px; color: var(--ink-soft); }\n  footer .wrap { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 24px; }\n  footer strong { color: var(--ink); display: block; margin-bottom: 6px; }\n  footer p { margin: 0; }\n\n  /* chat widget */\n  .launcher { position: fixed; z-index: 50; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));\n    display: flex; align-items: center; gap: 10px; border: 0; border-radius: 999px; padding: 14px 20px 14px 16px; cursor: pointer;\n    background: var(--graphite); color: var(--on-graphite); font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.25); }\n  .launcher svg { width: 22px; height: 22px; }\n  .launcher .pip { width: 9px; height: 9px; border-radius: 50%; background: var(--brass); }\n  .chatbox { position: fixed; z-index: 60; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));\n    width: min(410px, calc(100vw - 40px)); height: min(640px, calc(100vh - 40px)); background: var(--panel); border: 1px solid var(--steel);\n    border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; overflow: hidden; }\n  .cb-head { background: var(--graphite); color: var(--on-graphite); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }\n  .cb-head .t { flex: 1; min-width: 0; }\n  .cb-head strong { display: block; font: 700 20px/1.1 var(--display); font-stretch: 80%; }\n  .cb-head small { color: #a9b0ad; font-size: 13px; display: flex; align-items: center; gap: 6px; }\n  .dot { width: 7px; height: 7px; border-radius: 50%; background: #a9b0ad; }\n  .dot.ok { background: var(--ok); } .dot.err { background: var(--bad); }\n  .icon-btn { border: 0; background: transparent; color: var(--on-graphite); cursor: pointer; padding: 6px; border-radius: 4px; font-size: 13px; }\n  .icon-btn:hover { background: rgba(255,255,255,.1); }\n  .cb-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }\n  .msg { max-width: 88%; display: flex; flex-direction: column; gap: 5px; }\n  .msg.user { align-self: flex-end; align-items: flex-end; }\n  .bubble { padding: 9px 13px; border-radius: 10px; font-size: 15.5px; line-height: 1.5; overflow-wrap: anywhere; }\n  .msg.user .bubble { background: var(--user); color: #f2f4f3; border-bottom-right-radius: 3px; }\n  .msg.bot .bubble { background: var(--paper); border: 1px solid var(--steel); border-bottom-left-radius: 3px; }\n  .msg.handoff .bubble { background: var(--warn-bg); border-color: var(--warn-line); }\n  .msg.blocked .bubble, .msg.error .bubble { background: var(--stop-bg); border-color: var(--stop-line); }\n  .bubble p { margin: 0 0 7px; } .bubble p:last-child { margin: 0; }\n  .bubble ul, .bubble ol { margin: 3px 0 7px; padding-left: 20px; }\n  .lbl { font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }\n  .srcs { display: flex; flex-wrap: wrap; gap: 5px; }\n  .src { font: 500 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 3px; background: var(--steel); color: var(--ink-soft); }\n  .welcome { color: var(--ink-soft); font-size: 15px; }\n  .welcome .askrow { margin-top: 10px; }\n  .typing { display: inline-flex; gap: 4px; padding: 12px 14px; }\n  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); animation: b 1.2s infinite; }\n  .typing span:nth-child(2) { animation-delay: .15s } .typing span:nth-child(3) { animation-delay: .3s }\n  @keyframes b { 0%, 60%, 100% { opacity: .3; transform: none } 30% { opacity: 1; transform: translateY(-3px) } }\n  .cb-code { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--steel); background: var(--paper); align-items: center; }\n  .cb-code label { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }\n  .cb-code input { flex: 1; min-width: 0; border: 1px solid var(--steel); background: var(--panel); border-radius: 4px; padding: 6px 8px; font: 500 14px var(--mono); letter-spacing: .2em; text-transform: uppercase; }\n  .cb-code button { border: 1px solid var(--steel); background: var(--panel); border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 13px; }\n  .cb-form { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--steel); }\n  .cb-form textarea { flex: 1; resize: none; height: 44px; max-height: 120px; padding: 10px 12px; border: 1px solid var(--steel); border-radius: 6px; background: var(--paper); overflow-y: hidden; }\n  .cb-note { font-size: 12px; color: var(--ink-soft); padding: 0 14px 10px; }\n\n  @media (max-width: 880px) {\n    .nav ul { display: none; }\n    .hero { padding-block: 44px 40px; }\n    .hero .wrap, .sites, .employees .grid, footer .wrap { grid-template-columns: 1fr; }\n    .products, .promise { grid-template-columns: 1fr; }\n    section { padding-block: 52px; }\n    .chatbox { right: 0; bottom: 0; width: 100vw; height: 100%; border-radius: 0; border: 0;\n      padding-bottom: env(safe-area-inset-bottom, 0px); padding-top: env(safe-area-inset-top, 0px); }\n  }\n  @media (prefers-reduced-motion: reduce) { * { animation: none !important; scroll-behavior: auto !important; } }\n</style>\n</head>\n<body>\n\n<nav class=\"nav\" aria-label=\"Main\">\n  <div class=\"wrap\">\n    <a class=\"logo\" href=\"#top\" aria-label=\"BrewTec home\">\n      <svg viewBox=\"0 0 28 28\" aria-hidden=\"true\"><rect width=\"28\" height=\"28\" rx=\"4\" fill=\"var(--graphite)\"/><path d=\"M7 10h11v5.5A4.5 4.5 0 0 1 13.5 20h-2A4.5 4.5 0 0 1 7 15.5z\" fill=\"var(--brass)\"/><path d=\"M18 11.5h1.2a2.3 2.3 0 0 1 0 4.6H18\" fill=\"none\" stroke=\"var(--brass)\" stroke-width=\"1.5\"/></svg>\n      BREWTEC\n    </a>\n    <ul>\n      <li><a href=\"#machines\">Machines</a></li>\n      <li><a href=\"#service\">Service</a></li>\n      <li><a href=\"#sites\">Sites</a></li>\n      <li><a href=\"#employees\">Employees</a></li>\n    </ul>\n    <div style=\"display:flex;align-items:center;gap:14px\"><span style=\"font-size:15px;color:var(--ink-soft)\">Signed in as <b style=\"color:var(--ink)\">{{ String($('Check login').first().json.display_name || $('Check login').first().json.user_email || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }}</b></span><button class=\"btn\" type=\"button\" data-open-chat>Employee assistant</button></div>\n  </div>\n</nav>\n\n<header class=\"hero\" id=\"top\">\n  <div class=\"wrap\">\n    <div>\n      <span class=\"eyebrow\">Coffee equipment from Koeln and Leverkusen</span>\n      <h1>The same shot, ten thousand times over.</h1>\n      <p class=\"lead\">BrewTec builds espresso machines and grinders for cafés, offices and hotels, and keeps them running with a spare-parts list in every box and a five-year warranty.</p>\n      <div class=\"actions\">\n        <a class=\"btn\" href=\"#machines\">See the machines</a>\n        <button class=\"btn line\" type=\"button\" data-open-chat>Ask the employee assistant</button>\n      </div>\n    </div>\n    <aside class=\"spec\" aria-label=\"Extraction specification\">\n      <span class=\"eyebrow\">Factory calibration, every machine</span>\n      <dl>\n        <dt>Brew pressure</dt><dd>9.0 <small>bar</small></dd>\n        <dt>Group head temperature</dt><dd>93.0 <small>°C</small></dd>\n        <dt>Dose tolerance</dt><dd>±0.3 <small>g</small></dd>\n        <dt>Warranty</dt><dd>5 <small>years</small></dd>\n      </dl>\n    </aside>\n  </div>\n</header>\n\n<section id=\"machines\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Machines</span><h2>Three machines, one standard</h2></div>\n      <p>Every machine is calibrated in Koeln and shipped from our Leverkusen warehouse with its own spare-parts list.</p>\n    </div>\n    <div class=\"products\">\n      <article class=\"product\">\n        <canvas data-draw=\"duo\" aria-hidden=\"true\"></canvas>\n        <h3>Barista Duo</h3>\n        <p>Two-group machine for busy cafés. Dual boilers, separate steam circuit.</p>\n        <div class=\"row\"><span class=\"tag\">2 groups</span><span class=\"tag\">11 l boiler</span><span class=\"tag\">PID</span></div>\n      </article>\n      <article class=\"product\">\n        <canvas data-draw=\"solo\" aria-hidden=\"true\"></canvas>\n        <h3>Office Solo</h3>\n        <p>One group, plumbed in, built for an office kitchen that serves 40 people a day.</p>\n        <div class=\"row\"><span class=\"tag\">1 group</span><span class=\"tag\">plumbed</span><span class=\"tag\">auto-clean</span></div>\n      </article>\n      <article class=\"product\">\n        <canvas data-draw=\"grind\" aria-hidden=\"true\"></canvas>\n        <h3>Mahlwerk 64</h3>\n        <p>Flat-burr grinder with stepless adjustment and a timed dose for consistent shots.</p>\n        <div class=\"row\"><span class=\"tag\">64 mm burrs</span><span class=\"tag\">stepless</span><span class=\"tag\">timed dose</span></div>\n      </article>\n    </div>\n  </div>\n</section>\n\n<section class=\"service\" id=\"service\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Service</span><h2>We promise only what we deliver</h2></div>\n      <p>Straight from our code of conduct: be honest about the product, and stand behind it.</p>\n    </div>\n    <div class=\"promise\">\n      <div><strong class=\"mono\">5 years</strong><p>Warranty on every machine and grinder we sell.</p></div>\n      <div><strong class=\"mono\">1 list</strong><p>A full spare-parts list ships in every box, so any technician can repair it.</p></div>\n      <div><strong class=\"mono\">2 sites</strong><p>Engineering and support in Koeln, warehouse and logistics in Leverkusen.</p></div>\n    </div>\n  </div>\n</section>\n\n<section id=\"sites\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Sites</span><h2>Where BrewTec works</h2></div>\n      <p>84 people across two sites on the Rhine.</p>\n    </div>\n    <div class=\"sites\">\n      <article class=\"site\">\n        <span class=\"eyebrow\">Koeln</span>\n        <h3>Office and engineering</h3>\n        <p>Product engineering, calibration, Customer Success and Marketing.</p>\n        <ul><li>Office roles can work remotely up to 3 days a week</li><li>Meeting rooms booked through the room calendar</li></ul>\n      </article>\n      <article class=\"site\">\n        <span class=\"eyebrow\">Leverkusen</span>\n        <h3>Warehouse and logistics</h3>\n        <p>Spare parts, shipping and machine handover to customers.</p>\n        <ul><li>Warehouse roles work on site in shifts</li><li>Rugged tablets for every warehouse colleague</li></ul>\n      </article>\n    </div>\n  </div>\n</section>\n\n<section class=\"employees\" id=\"employees\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Employees</span><h2>For our team</h2></div>\n      <p>The employee assistant answers from BrewTec's official policies and names the document for every answer.</p>\n    </div>\n    <div class=\"grid\">\n      <article class=\"card\">\n        <h3>Ask the employee assistant</h3>\n        <p>Leave, sickness, working time, VPN, expenses, payroll, travel, parking and holidays. German works too.</p>\n        <div class=\"askrow\">\n          <button class=\"chip\" type=\"button\" data-ask=\"How do I request vacation?\">How do I request vacation?</button>\n          <button class=\"chip\" type=\"button\" data-ask=\"How do I set up the VPN?\">How do I set up the VPN?</button>\n          <button class=\"chip\" type=\"button\" data-ask=\"When do I get my payslip?\">When do I get my payslip?</button>\n          <button class=\"chip\" type=\"button\" data-ask=\"Can I park at the Koeln office?\">Can I park at the Koeln office?</button>\n          <button class=\"chip\" type=\"button\" data-ask=\"Wie lange muss ich nach 6 Stunden Pause machen?\">Pause nach 6 Stunden?</button>\n        </div>\n      </article>\n      <article class=\"card\">\n        <h3>Starting at BrewTec?</h3>\n        <p>Your welcome email holds a 6-character personal code. Give it to the assistant to see your onboarding tasks, your device and your work account.</p>\n        <div class=\"depts\"><span>Engineering</span><span>Customer Success</span><span>Warehouse and Logistics</span><span>Marketing</span></div>\n        <div><button class=\"btn\" type=\"button\" data-open-chat data-focus-code>Check my onboarding</button></div>\n      </article>\n    </div>\n  </div>\n</section>\n\n<footer>\n  <div class=\"wrap\">\n    <div><strong>BrewTec GmbH</strong><p>Coffee equipment, Koeln and Leverkusen. Fictional company for a course capstone project.</p></div>\n    <div><strong>People Ops</strong><p>people@brewtec.de<br>Payroll: payroll@brewtec.de</p></div>\n    <div><strong>IT help desk</strong><p>it-help@brewtec.de<br>Whistleblowing: speakup.brewtec.de</p></div>\n  </div>\n</footer>\n\n<button class=\"launcher\" id=\"launcher\" type=\"button\" data-open-chat aria-label=\"Open the employee assistant\">\n  <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 5h16v11H9l-5 4z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/></svg>\n  Ask BrewTec <span class=\"pip\"></span>\n</button>\n\n<div class=\"chatbox\" id=\"chatbox\" role=\"dialog\" aria-label=\"BrewTec employee assistant\" hidden>\n  <div class=\"cb-head\">\n    <div class=\"t\"><strong>Employee assistant</strong><small><span class=\"dot\" id=\"dot\"></span><span id=\"stat\">Answers from BrewTec policies</span></small></div>\n    <button class=\"icon-btn\" type=\"button\" id=\"reset\" title=\"Start a new conversation\">New</button>\n    <button class=\"icon-btn\" type=\"button\" id=\"close\" aria-label=\"Close the assistant\">✕</button>\n  </div>\n  <div class=\"cb-msgs\" id=\"msgs\" aria-live=\"polite\"></div>\n  <form class=\"cb-code\" id=\"codeForm\" autocomplete=\"off\">\n    <label for=\"code\">My code</label>\n    <input id=\"code\" maxlength=\"6\" placeholder=\"AB12CD\">\n    <button type=\"submit\">Check</button>\n  </form>\n  <form class=\"cb-form\" id=\"form\">\n    <textarea id=\"q\" rows=\"1\" placeholder=\"Type your question\" aria-label=\"Your question\"></textarea>\n    <button class=\"btn\" id=\"send\" type=\"submit\">Send</button>\n  </form>\n  <div class=\"cb-note\">You are chatting with an AI system that answers from BrewTec documents. Never type tax IDs, bank details or social security numbers. Such messages are removed before they reach the assistant.</div>\n</div>\n\n<script>\n  // Chat endpoint of workflow 3. When n8n serves this page, the address is taken from the page itself,\n  // so it keeps working when the tunnel address changes. Opened as a local file, it falls back to localhost.\n  const CHAT_PATH = '/webhook/1ddcdf13-f58a-479a-9200-66b56dd65b09/chat';\n  const CHAT_URL = (() => {\n    try {\n      const base = new URL(document.baseURI);\n      if (base.protocol === 'http:' || base.protocol === 'https:') return base.origin + CHAT_PATH;\n    } catch (e) {}\n    return 'http://localhost:5678' + CHAT_PATH;\n  })();\n\n  const $ = id => document.getElementById(id);\n  const box = $('chatbox'), msgs = $('msgs'), q = $('q'), send = $('send');\n  let busy = false, opened = false;\n\n  // ---- session (works even where storage is blocked) ----\n  const newId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '');\n  let memSession = null;\n  function session() {\n    try { let s = sessionStorage.getItem('bt_session'); if (!s) { s = newId(); sessionStorage.setItem('bt_session', s); } return s; }\n    catch (e) { return memSession || (memSession = newId()); }\n  }\n  function resetSession() { memSession = newId(); try { sessionStorage.setItem('bt_session', memSession); } catch (e) {} }\n\n  // ---- open and close ----\n  function welcome() {\n    msgs.innerHTML = '<div class=\"welcome\"><p><strong>Hi, I answer questions about BrewTec policies.</strong> Every answer names its source document. If I cannot find it, I pass your question to People Ops.</p>' +\n      '<div class=\"askrow\">' + ['How do I request vacation?', 'How do I set up the VPN?', 'What happens on my first day?', 'Does BrewTec pay for the Deutschlandticket?']\n        .map(t => '<button class=\"chip\" type=\"button\" data-ask=\"' + t + '\">' + t + '</button>').join('') + '</div></div>';\n  }\n  function openChat(focusCode) {\n    box.hidden = false; $('launcher').hidden = true;\n    if (!opened) { welcome(); opened = true; }\n    (focusCode ? $('code') : q).focus();\n  }\n  function closeChat() { box.hidden = true; $('launcher').hidden = false; $('launcher').focus(); }\n  document.addEventListener('click', e => {\n    const opener = e.target.closest('[data-open-chat]');\n    if (opener) { openChat(opener.hasAttribute('data-focus-code')); return; }\n    const chip = e.target.closest('[data-ask]');\n    if (chip) { openChat(false); ask(chip.getAttribute('data-ask')); }\n  });\n  $('close').onclick = closeChat;\n  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !box.hidden) closeChat(); });\n  $('reset').onclick = () => { if (!busy) { resetSession(); welcome(); q.focus(); } };\n\n  // ---- render answers ----\n  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\n  function pretty(file) {\n    const p = file.replace(/\\.md$/i, '').split('-');\n    const map = { hr: 'HR', it: 'IT', finance: 'Finance', facilities: 'Facilities', general: 'General', onboarding: 'Onboarding' };\n    const dept = map[p[0]] ? map[p.shift()] : '';\n    let t = p.join(' '); t = t.charAt(0).toUpperCase() + t.slice(1);\n    return dept ? dept + ': ' + t : t;\n  }\n  function inline(s) {\n    return s.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n            .replace(/(^|[\\s(])\\*(?!\\s)([^*\\n]+?)\\*(?=[\\s).,;:!?]|$)/g, '$1<em>$2</em>');\n  }\n  function format(text) {\n    const sources = [];\n    let body = String(text).replace(/\\[([^\\]]*\\.md[^\\]]*)\\]/gi, (all, inner) => { const fs = inner.split(/[,;]/).map(s => s.trim()); if (!fs.every(f => /^[a-z0-9][a-z0-9\\-_.]*\\.md$/i.test(f))) return all;             fs.forEach(f => { if (!sources.includes(f)) sources.push(f); }); return ''; });\n    const status = /\\[onboarding status\\]/i.test(body);\n    body = body.replace(/\\[(onboarding status|code needed)\\]/gi, '').trim();\n    let html = '', list = null;\n    const close = () => { if (list) { html += '</' + list + '>'; list = null; } };\n    for (const raw of esc(body).split('\\n')) {\n      const line = raw.trim();\n      const b = line.match(/^[-•]\\s+(.*)/) || line.match(/^\\*\\s+(.*)/), n = line.match(/^\\d+[.)]\\s+(.*)/);\n      if (b || n) {\n        const type = b ? 'ul' : 'ol';\n        if (list !== type) { close(); html += '<' + type + '>'; list = type; }\n        html += '<li>' + inline((b || n)[1]) + '</li>';\n      } else { close(); if (line) html += '<p>' + inline(line) + '</p>'; }\n    }\n    close();\n    return { html: html || '<p>' + esc(text) + '</p>', sources, status };\n  }\n  function add(role, text, kind) {\n    msgs.querySelector('.welcome')?.remove();\n    const w = document.createElement('div');\n    w.className = 'msg ' + role + (kind ? ' ' + kind : '');\n    if (role === 'user') {\n      w.innerHTML = '<div class=\"bubble\"></div>'; w.firstChild.textContent = text;\n    } else {\n      const f = format(text);\n      if (kind === 'handoff') w.insertAdjacentHTML('beforeend', '<span class=\"lbl\">Passed to People Ops</span>');\n      if (kind === 'blocked') w.insertAdjacentHTML('beforeend', '<span class=\"lbl\">Personal data removed</span>');\n      w.insertAdjacentHTML('beforeend', '<div class=\"bubble\">' + f.html + '</div>');\n      if (f.sources.length || f.status) {\n        w.insertAdjacentHTML('beforeend', '<div class=\"srcs\">' +\n          f.sources.map(s => '<span class=\"src\" title=\"' + esc(s) + '\">' + esc(pretty(s)) + '</span>').join('') +\n          (f.status ? '<span class=\"src\">Your onboarding status</span>' : '') + '</div>');\n      }\n    }\n    msgs.appendChild(w); msgs.scrollTop = msgs.scrollHeight;\n  }\n  function status(cls, text) { $('dot').className = 'dot' + (cls ? ' ' + cls : ''); $('stat').textContent = text; }\n  function setBusy(v) { busy = v; send.disabled = v; q.disabled = v; }\n\n  // ---- talk to n8n ----\n  async function ask(text) {\n    text = String(text || '').trim();\n    if (!text || busy) return;\n    add('user', text); q.value = '';\n    setBusy(true); status('', 'Thinking');\n    msgs.insertAdjacentHTML('beforeend', '<div class=\"msg bot\" id=\"typing\"><div class=\"bubble typing\" aria-label=\"Assistant is typing\"><span></span><span></span><span></span></div></div>');\n    msgs.scrollTop = msgs.scrollHeight;\n    try {\n      const res = await fetch(CHAT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({ action: 'sendMessage', sessionId: session(), chatInput: text }) });\n      if (!res.ok) throw new Error('the server answered ' + res.status);\n      const raw = await res.text();\n      let data; try { data = JSON.parse(raw); } catch (e) { data = raw; }\n      if (Array.isArray(data)) data = data[0] || {};\n      const reply = typeof data === 'string' ? data : (data.output ?? data.text ?? data.reply ?? '');\n      $('typing')?.remove();\n      if (!reply) throw new Error('the answer was empty');\n      add('bot', reply, /^I could not find a reliable answer/i.test(reply) ? 'handoff' : /^For your safety I removed/i.test(reply) ? 'blocked' : '');\n      status('ok', 'Connected');\n    } catch (err) {\n      $('typing')?.remove();\n      add('bot', 'The assistant cannot be reached right now: ' + err.message + '. Please try again in a moment.', 'error');\n      status('err', 'Not reachable');\n    } finally { setBusy(false); q.focus(); }\n  }\n  $('form').addEventListener('submit', e => { e.preventDefault(); ask(q.value); });\n  q.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(q.value); } });\n  $('codeForm').addEventListener('submit', e => {\n    e.preventDefault();\n    const c = $('code').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\n    if (c.length !== 6) { $('code').focus(); return; }\n    $('code').value = '';\n    ask('My personal code is ' + c + '. What do I still need to do?');\n  });\n\n  // ---- product line drawings ----\n  function drawAll() {\n    const css = getComputedStyle(document.documentElement);\n    const ink = css.getPropertyValue('--ink').trim(), brass = css.getPropertyValue('--brass').trim(), steel = css.getPropertyValue('--steel').trim();\n    document.querySelectorAll('canvas[data-draw]').forEach(cv => {\n      const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;\n      cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);\n      const g = cv.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, r.width, r.height);\n      g.lineWidth = 1.6; g.strokeStyle = ink; g.lineJoin = 'round';\n      const W = r.width, H = r.height, cx = W / 2, base = H - 14;\n      g.strokeStyle = steel; g.beginPath(); g.moveTo(10, base); g.lineTo(W - 10, base); g.stroke();\n      g.strokeStyle = ink;\n      const kind = cv.dataset.draw;\n      if (kind === 'grind') {\n        g.beginPath(); g.moveTo(cx - 34, 18); g.lineTo(cx + 34, 18); g.lineTo(cx + 18, 52); g.lineTo(cx - 18, 52); g.closePath(); g.stroke();\n        g.strokeRect(cx - 30, 52, 60, 66); g.strokeRect(cx - 40, base - 14, 80, 14);\n        g.beginPath(); g.arc(cx, 85, 14, 0, Math.PI * 2); g.stroke();\n        g.strokeStyle = brass; g.beginPath(); g.moveTo(cx, 85); g.lineTo(cx + 10, 76); g.stroke();\n      } else {\n        const groups = kind === 'duo' ? 2 : 1, w = kind === 'duo' ? Math.min(220, W - 40) : 130, x = cx - w / 2;\n        g.strokeRect(x, 26, w, base - 40);\n        g.beginPath(); g.moveTo(x, 26); g.lineTo(x + 12, 14); g.lineTo(x + w - 12, 14); g.lineTo(x + w, 26); g.stroke();\n        for (let i = 0; i < groups; i++) {\n          const gx = groups === 1 ? cx : x + w * (i === 0 ? .32 : .68);\n          g.strokeRect(gx - 14, 62, 28, 12);\n          g.beginPath(); g.moveTo(gx + 14, 68); g.lineTo(gx + 32, 68); g.stroke();\n          g.strokeStyle = brass; g.beginPath(); g.moveTo(gx - 5, 80); g.lineTo(gx - 5, 92); g.moveTo(gx + 5, 80); g.lineTo(gx + 5, 92); g.stroke();\n          g.strokeStyle = ink; g.strokeRect(gx - 9, 96, 18, 14);\n        }\n        g.beginPath(); g.arc(x + w - 22, 42, 8, 0, Math.PI * 2); g.stroke();\n        g.strokeStyle = brass; g.beginPath(); g.moveTo(x + w - 22, 42); g.lineTo(x + w - 17, 37); g.stroke();\n      }\n    });\n  }\n  drawAll();\n  addEventListener('resize', drawAll);\n  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawAll);\n</script>\n</body>\n</html>\n",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-cache"
+              }
+            ]
+          }
+        }
+      },
+      "id": "dac47cf8-c7a4-443f-973d-42911062bbfa",
+      "name": "Send website",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1296,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Personal employee login (08_website_logins.sql). The browser sends work e-mail and password\n-- as a Basic Auth header. Checked against bcrypt hashes, every attempt logged without the password.\nselect * from website_login($1);",
+        "options": {
+          "queryReplacement": "={{ [ $json.auth ] }}"
+        }
+      },
+      "id": "fbb15864-81c8-4c60-823e-5ed491cefc7c",
+      "name": "Check login",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        848,
+        320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7ec358e9-49b4-41a1-9210-979bf4992669",
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "f351ef76-0dc2-4541-87d4-d888497bbdd9",
+      "name": "Login ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>BrewTec</title><style>body{font-family:Arial,sans-serif;background:#eef0ee;color:#1c1f1e;display:grid;place-items:center;min-height:100vh;margin:0}main{background:#f8f9f8;border:1px solid #d5d9d6;border-radius:12px;padding:32px 36px;max-width:440px}h1{font-size:22px;margin:0 0 12px}p{line-height:1.5;margin:0 0 8px}</style></head><body><main><h1>BrewTec employees only</h1><p>Please sign in with your BrewTec work e-mail and your website password.</p><p>No login yet, or locked out? Ask People Ops at people@brewtec.de.</p><p lang=\"de\">Bitte mit Ihrer BrewTec-E-Mail und Ihrem Website-Passwort anmelden.</p></main></body></html>",
+        "options": {
+          "responseCode": 401,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "WWW-Authenticate",
+                "value": "Basic realm=\"BrewTec employees\", charset=\"UTF-8\""
+              },
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      },
+      "id": "b72124e4-dfa3-4472-a59d-8a5cddeab8aa",
+      "name": "Ask for login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        848,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>BrewTec</title><style>body{font-family:Arial,sans-serif;background:#eef0ee;color:#1c1f1e;display:grid;place-items:center;min-height:100vh;margin:0}main{background:#f8f9f8;border:1px solid #d5d9d6;border-radius:12px;padding:32px 36px;max-width:440px}h1{font-size:22px;margin:0 0 12px}p{line-height:1.5;margin:0 0 8px}</style></head><body><main><h1>The BrewTec website is temporarily unavailable</h1><p>Please try again in a few minutes.</p></main></body></html>",
+        "options": {
+          "responseCode": 503,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      },
+      "id": "2d0fe1fb-ed7f-40d2-9453-0b939dee8d64",
+      "name": "Login check unavailable",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n<title>BrewTec GmbH</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>\n  /* Layout: industrial spec-sheet. Graphite ink on cool steel paper, one brass accent, condensed display type. */\n  :root {\n    --paper: #eef0ee;\n    --panel: #f8f9f8;\n    --steel: #d5d9d6;\n    --ink: #1c1f1e;\n    --ink-soft: #59605d;\n    --brass: #a8761c;\n    --brass-ink: #fffaf0;\n    --graphite: #232726;\n    --on-graphite: #e9ece9;\n    --user: #2f3533;\n    --warn-bg: #fbf1dc;\n    --warn-line: #d9aa4c;\n    --stop-bg: #f9e6e3;\n    --stop-line: #d08a80;\n    --ok: #2e7a4e;\n    --bad: #b5402f;\n    --display: \"Archivo\", \"Arial Narrow\", Arial, sans-serif;\n    --body: \"Source Sans 3\", \"Segoe UI\", system-ui, sans-serif;\n    --mono: \"JetBrains Mono\", Consolas, monospace;\n    color-scheme: light;\n  }\n  @media (prefers-color-scheme: dark) {\n    :root:not([data-theme=\"light\"]) {\n      --paper: #141716; --panel: #1b1f1e; --steel: #2c3230; --ink: #e6e9e7; --ink-soft: #9ba39f;\n      --brass: #d6a24a; --brass-ink: #1a1408; --graphite: #0d0f0e; --on-graphite: #e6e9e7; --user: #3a423f;\n      --warn-bg: #2f2716; --warn-line: #8c6c2b; --stop-bg: #331d1a; --stop-line: #8a4a40; --ok: #6cc28f; --bad: #e07a6a;\n      color-scheme: dark;\n    }\n  }\n  :root[data-theme=\"dark\"] {\n    --paper: #141716; --panel: #1b1f1e; --steel: #2c3230; --ink: #e6e9e7; --ink-soft: #9ba39f;\n    --brass: #d6a24a; --brass-ink: #1a1408; --graphite: #0d0f0e; --on-graphite: #e6e9e7; --user: #3a423f;\n    --warn-bg: #2f2716; --warn-line: #8c6c2b; --stop-bg: #331d1a; --stop-line: #8a4a40; --ok: #6cc28f; --bad: #e07a6a;\n    color-scheme: dark;\n  }\n\n  * { box-sizing: border-box; }\n  [hidden] { display: none !important; }\n  html, body { margin: 0; }\n  body { background: var(--paper); color: var(--ink); font: 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; }\n  a { color: inherit; }\n  button, input, textarea { font: inherit; color: inherit; }\n  :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }\n  .wrap { max-width: 1160px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }\n  h1, h2, h3 { font-family: var(--display); font-stretch: 78%; line-height: 1.02; letter-spacing: -.01em; margin: 0; text-wrap: balance; }\n  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); }\n  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }\n\n  /* nav */\n  .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--steel); }\n  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 14px; }\n  .logo { display: flex; align-items: center; gap: 10px; font: 800 22px/1 var(--display); font-stretch: 75%; letter-spacing: .02em; text-decoration: none; }\n  .logo svg { width: 28px; height: 28px; }\n  .nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 15px; }\n  .nav ul a { text-decoration: none; color: var(--ink-soft); }\n  .nav ul a:hover { color: var(--ink); }\n  .btn { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 4px; padding: 11px 18px; font-weight: 600; cursor: pointer; text-decoration: none; background: var(--brass); color: var(--brass-ink); }\n  .btn:hover { filter: brightness(1.06); }\n  .btn.line { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }\n\n  /* hero */\n  .hero { padding-block: 72px 56px; border-bottom: 1px solid var(--steel); }\n  .hero .wrap { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: end; }\n  .hero h1 { font-size: clamp(46px, 7.2vw, 96px); font-weight: 800; margin: 14px 0 22px; }\n  .hero p.lead { font-size: 20px; color: var(--ink-soft); max-width: 34em; margin: 0 0 28px; }\n  .hero .actions { display: flex; flex-wrap: wrap; gap: 12px; }\n  .spec { background: var(--graphite); color: var(--on-graphite); border-radius: 6px; padding: 24px; }\n  .spec .eyebrow { color: var(--brass); }\n  .spec dl { display: grid; grid-template-columns: 1fr auto; margin: 16px 0 0; }\n  .spec dt, .spec dd { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.12); margin: 0; }\n  .spec dt { color: #a9b0ad; font-size: 15px; }\n  .spec dd { font: 500 22px/1.2 var(--mono); text-align: right; font-variant-numeric: tabular-nums; }\n  .spec dd small { font-size: 13px; color: #a9b0ad; }\n\n  section { padding-block: 72px; }\n  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 32px; }\n  .head h2 { font-size: clamp(34px, 4.6vw, 56px); font-weight: 800; margin-top: 10px; }\n  .head p { max-width: 30em; color: var(--ink-soft); margin: 0; }\n\n  /* products */\n  .products { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--steel); border: 1px solid var(--steel); }\n  .product { background: var(--panel); padding: 26px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }\n  .product canvas { width: 100%; height: 150px; display: block; }\n  .product h3 { font-size: 30px; font-weight: 700; }\n  .product p { margin: 0; color: var(--ink-soft); }\n  .product .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }\n  .tag { font: 500 12px/1 var(--mono); padding: 6px 8px; border: 1px solid var(--steel); border-radius: 3px; color: var(--ink-soft); }\n\n  /* service */\n  .service { background: var(--graphite); color: var(--on-graphite); }\n  .service .head p { color: #a9b0ad; }\n  .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }\n  .promise div { border-top: 2px solid var(--brass); padding-top: 18px; }\n  .promise strong { display: block; font: 800 46px/1 var(--display); font-stretch: 75%; margin-bottom: 8px; }\n  .promise p { margin: 0; color: #c3c9c6; }\n\n  /* sites */\n  .sites { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }\n  .site { border: 1px solid var(--steel); background: var(--panel); border-radius: 6px; padding: 26px; }\n  .site h3 { font-size: 34px; font-weight: 700; margin: 8px 0 10px; }\n  .site p { margin: 0 0 12px; color: var(--ink-soft); }\n  .site ul { margin: 0; padding-left: 18px; }\n\n  /* careers / employees */\n  .employees .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }\n  .card { border: 1px solid var(--steel); background: var(--panel); border-radius: 6px; padding: 26px; display: flex; flex-direction: column; gap: 14px; }\n  .card h3 { font-size: 30px; font-weight: 700; }\n  .card p { margin: 0; color: var(--ink-soft); }\n  .depts { display: flex; flex-wrap: wrap; gap: 8px; }\n  .depts span { padding: 6px 12px; border-radius: 999px; background: var(--steel); font-size: 14px; }\n  .askrow { display: flex; flex-wrap: wrap; gap: 8px; }\n  .chip { border: 1px solid var(--steel); background: var(--paper); border-radius: 999px; padding: 7px 13px; font-size: 14px; cursor: pointer; }\n  .chip:hover { border-color: var(--brass); }\n\n  footer { border-top: 1px solid var(--steel); padding-block: 36px 110px; font-size: 15px; color: var(--ink-soft); }\n  footer .wrap { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 24px; }\n  footer strong { color: var(--ink); display: block; margin-bottom: 6px; }\n  footer p { margin: 0; }\n\n  /* chat widget */\n  .launcher { position: fixed; z-index: 50; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));\n    display: flex; align-items: center; gap: 10px; border: 0; border-radius: 999px; padding: 14px 20px 14px 16px; cursor: pointer;\n    background: var(--graphite); color: var(--on-graphite); font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.25); }\n  .launcher svg { width: 22px; height: 22px; }\n  .launcher .pip { width: 9px; height: 9px; border-radius: 50%; background: var(--brass); }\n  .chatbox { position: fixed; z-index: 60; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));\n    width: min(410px, calc(100vw - 40px)); height: min(640px, calc(100vh - 40px)); background: var(--panel); border: 1px solid var(--steel);\n    border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column; overflow: hidden; }\n  .cb-head { background: var(--graphite); color: var(--on-graphite); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }\n  .cb-head .t { flex: 1; min-width: 0; }\n  .cb-head strong { display: block; font: 700 20px/1.1 var(--display); font-stretch: 80%; }\n  .cb-head small { color: #a9b0ad; font-size: 13px; display: flex; align-items: center; gap: 6px; }\n  .dot { width: 7px; height: 7px; border-radius: 50%; background: #a9b0ad; }\n  .dot.ok { background: var(--ok); } .dot.err { background: var(--bad); }\n  .icon-btn { border: 0; background: transparent; color: var(--on-graphite); cursor: pointer; padding: 6px; border-radius: 4px; font-size: 13px; }\n  .icon-btn:hover { background: rgba(255,255,255,.1); }\n  .cb-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }\n  .msg { max-width: 88%; display: flex; flex-direction: column; gap: 5px; }\n  .msg.user { align-self: flex-end; align-items: flex-end; }\n  .bubble { padding: 9px 13px; border-radius: 10px; font-size: 15.5px; line-height: 1.5; overflow-wrap: anywhere; }\n  .msg.user .bubble { background: var(--user); color: #f2f4f3; border-bottom-right-radius: 3px; }\n  .msg.bot .bubble { background: var(--paper); border: 1px solid var(--steel); border-bottom-left-radius: 3px; }\n  .msg.handoff .bubble { background: var(--warn-bg); border-color: var(--warn-line); }\n  .msg.blocked .bubble, .msg.error .bubble { background: var(--stop-bg); border-color: var(--stop-line); }\n  .bubble p { margin: 0 0 7px; } .bubble p:last-child { margin: 0; }\n  .bubble ul, .bubble ol { margin: 3px 0 7px; padding-left: 20px; }\n  .lbl { font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }\n  .srcs { display: flex; flex-wrap: wrap; gap: 5px; }\n  .src { font: 500 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 3px; background: var(--steel); color: var(--ink-soft); }\n  .welcome { color: var(--ink-soft); font-size: 15px; }\n  .welcome .askrow { margin-top: 10px; }\n  .typing { display: inline-flex; gap: 4px; padding: 12px 14px; }\n  .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--brass); animation: b 1.2s infinite; }\n  .typing span:nth-child(2) { animation-delay: .15s } .typing span:nth-child(3) { animation-delay: .3s }\n  @keyframes b { 0%, 60%, 100% { opacity: .3; transform: none } 30% { opacity: 1; transform: translateY(-3px) } }\n  .cb-code { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--steel); background: var(--paper); align-items: center; }\n  .cb-code label { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }\n  .cb-code input { flex: 1; min-width: 0; border: 1px solid var(--steel); background: var(--panel); border-radius: 4px; padding: 6px 8px; font: 500 14px var(--mono); letter-spacing: .2em; text-transform: uppercase; }\n  .cb-code button { border: 1px solid var(--steel); background: var(--panel); border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 13px; }\n  .cb-form { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--steel); }\n  .cb-form textarea { flex: 1; resize: none; height: 44px; max-height: 120px; padding: 10px 12px; border: 1px solid var(--steel); border-radius: 6px; background: var(--paper); overflow-y: hidden; }\n  .cb-note { font-size: 12px; color: var(--ink-soft); padding: 0 14px 10px; }\n\n  @media (max-width: 880px) {\n    .nav ul { display: none; }\n    .hero { padding-block: 44px 40px; }\n    .hero .wrap, .sites, .employees .grid, footer .wrap { grid-template-columns: 1fr; }\n    .products, .promise { grid-template-columns: 1fr; }\n    section { padding-block: 52px; }\n    .chatbox { right: 0; bottom: 0; width: 100vw; height: 100%; border-radius: 0; border: 0;\n      padding-bottom: env(safe-area-inset-bottom, 0px); padding-top: env(safe-area-inset-top, 0px); }\n  }\n  @media (prefers-reduced-motion: reduce) { * { animation: none !important; scroll-behavior: auto !important; } }\n</style>\n</head>\n<body>\n\n<nav class=\"nav\" aria-label=\"Main\">\n  <div class=\"wrap\">\n    <a class=\"logo\" href=\"#top\" aria-label=\"BrewTec home\">\n      <svg viewBox=\"0 0 28 28\" aria-hidden=\"true\"><rect width=\"28\" height=\"28\" rx=\"4\" fill=\"var(--graphite)\"/><path d=\"M7 10h11v5.5A4.5 4.5 0 0 1 13.5 20h-2A4.5 4.5 0 0 1 7 15.5z\" fill=\"var(--brass)\"/><path d=\"M18 11.5h1.2a2.3 2.3 0 0 1 0 4.6H18\" fill=\"none\" stroke=\"var(--brass)\" stroke-width=\"1.5\"/></svg>\n      BREWTEC\n    </a>\n    <ul>\n      <li><a href=\"#machines\">Machines</a></li>\n      <li><a href=\"#service\">Service</a></li>\n      <li><a href=\"#sites\">Sites</a></li>\n      <li><a href=\"#employees\">Employees</a></li>\n    </ul>\n    <a class=\"btn\" href=\"/webhook/brewtec/employees\">Employee login</a>\n  </div>\n</nav>\n\n<header class=\"hero\" id=\"top\">\n  <div class=\"wrap\">\n    <div>\n      <span class=\"eyebrow\">Coffee equipment from Koeln and Leverkusen</span>\n      <h1>The same shot, ten thousand times over.</h1>\n      <p class=\"lead\">BrewTec builds espresso machines and grinders for cafés, offices and hotels, and keeps them running with a spare-parts list in every box and a five-year warranty.</p>\n      <div class=\"actions\">\n        <a class=\"btn\" href=\"#machines\">See the machines</a>\n        <a class=\"btn line\" href=\"/webhook/brewtec/employees\">Employee login</a>\n      </div>\n    </div>\n    <aside class=\"spec\" aria-label=\"Extraction specification\">\n      <span class=\"eyebrow\">Factory calibration, every machine</span>\n      <dl>\n        <dt>Brew pressure</dt><dd>9.0 <small>bar</small></dd>\n        <dt>Group head temperature</dt><dd>93.0 <small>°C</small></dd>\n        <dt>Dose tolerance</dt><dd>±0.3 <small>g</small></dd>\n        <dt>Warranty</dt><dd>5 <small>years</small></dd>\n      </dl>\n    </aside>\n  </div>\n</header>\n\n<section id=\"machines\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Machines</span><h2>Three machines, one standard</h2></div>\n      <p>Every machine is calibrated in Koeln and shipped from our Leverkusen warehouse with its own spare-parts list.</p>\n    </div>\n    <div class=\"products\">\n      <article class=\"product\">\n        <canvas data-draw=\"duo\" aria-hidden=\"true\"></canvas>\n        <h3>Barista Duo</h3>\n        <p>Two-group machine for busy cafés. Dual boilers, separate steam circuit.</p>\n        <div class=\"row\"><span class=\"tag\">2 groups</span><span class=\"tag\">11 l boiler</span><span class=\"tag\">PID</span></div>\n      </article>\n      <article class=\"product\">\n        <canvas data-draw=\"solo\" aria-hidden=\"true\"></canvas>\n        <h3>Office Solo</h3>\n        <p>One group, plumbed in, built for an office kitchen that serves 40 people a day.</p>\n        <div class=\"row\"><span class=\"tag\">1 group</span><span class=\"tag\">plumbed</span><span class=\"tag\">auto-clean</span></div>\n      </article>\n      <article class=\"product\">\n        <canvas data-draw=\"grind\" aria-hidden=\"true\"></canvas>\n        <h3>Mahlwerk 64</h3>\n        <p>Flat-burr grinder with stepless adjustment and a timed dose for consistent shots.</p>\n        <div class=\"row\"><span class=\"tag\">64 mm burrs</span><span class=\"tag\">stepless</span><span class=\"tag\">timed dose</span></div>\n      </article>\n    </div>\n  </div>\n</section>\n\n<section class=\"service\" id=\"service\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Service</span><h2>We promise only what we deliver</h2></div>\n      <p>Straight from our code of conduct: be honest about the product, and stand behind it.</p>\n    </div>\n    <div class=\"promise\">\n      <div><strong class=\"mono\">5 years</strong><p>Warranty on every machine and grinder we sell.</p></div>\n      <div><strong class=\"mono\">1 list</strong><p>A full spare-parts list ships in every box, so any technician can repair it.</p></div>\n      <div><strong class=\"mono\">2 sites</strong><p>Engineering and support in Koeln, warehouse and logistics in Leverkusen.</p></div>\n    </div>\n  </div>\n</section>\n\n<section id=\"sites\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Sites</span><h2>Where BrewTec works</h2></div>\n      <p>84 people across two sites on the Rhine.</p>\n    </div>\n    <div class=\"sites\">\n      <article class=\"site\">\n        <span class=\"eyebrow\">Koeln</span>\n        <h3>Office and engineering</h3>\n        <p>Product engineering, calibration, Customer Success and Marketing.</p>\n        <ul><li>Office roles can work remotely up to 3 days a week</li><li>Meeting rooms booked through the room calendar</li></ul>\n      </article>\n      <article class=\"site\">\n        <span class=\"eyebrow\">Leverkusen</span>\n        <h3>Warehouse and logistics</h3>\n        <p>Spare parts, shipping and machine handover to customers.</p>\n        <ul><li>Warehouse roles work on site in shifts</li><li>Rugged tablets for every warehouse colleague</li></ul>\n      </article>\n    </div>\n  </div>\n</section>\n\n<section class=\"employees\" id=\"employees\">\n  <div class=\"wrap\">\n    <div class=\"head\">\n      <div><span class=\"eyebrow\">Employees</span><h2>For our team</h2></div>\n      <p>For BrewTec employees: policies, the employee assistant and onboarding, behind a personal login.</p>\n    </div>\n    <div class=\"grid\">\n      <article class=\"card\">\n        <h3>Employee area</h3>\n        <p>Policies, the employee assistant and your onboarding tasks are in the employee area. Sign in with your BrewTec work e-mail and your website password.</p>\n        <div><a class=\"btn\" href=\"/webhook/brewtec/employees\">Employee login</a></div>\n      </article>\n      <article class=\"card\">\n        <h3>Starting at BrewTec?</h3>\n        <p>People Ops gives you your login before your first day. Your welcome e-mail holds a 6-character personal code that shows your onboarding tasks in the employee area.</p>\n        <div class=\"depts\"><span>Engineering</span><span>Customer Success</span><span>Warehouse and Logistics</span><span>Marketing</span></div>\n        <p>No login yet or locked out? Write to people@brewtec.de.</p>\n      </article>\n    </div>\n  </div>\n</section>\n\n<footer>\n  <div class=\"wrap\">\n    <div><strong>BrewTec GmbH</strong><p>Coffee equipment, Koeln and Leverkusen. Fictional company for a course capstone project.</p></div>\n    <div><strong>People Ops</strong><p>people@brewtec.de<br>Payroll: payroll@brewtec.de<br><a href=\"/webhook/brewtec/employees\">Employee login</a></p></div>\n    <div><strong>IT help desk</strong><p>it-help@brewtec.de<br>Whistleblowing: speakup.brewtec.de</p></div>\n  </div>\n</footer>\n\n<script>\n  // Public page: no assistant here. It is in the employee area behind the login.\n  // ---- product line drawings ----\n  function drawAll() {\n    const css = getComputedStyle(document.documentElement);\n    const ink = css.getPropertyValue('--ink').trim(), brass = css.getPropertyValue('--brass').trim(), steel = css.getPropertyValue('--steel').trim();\n    document.querySelectorAll('canvas[data-draw]').forEach(cv => {\n      const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;\n      cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);\n      const g = cv.getContext('2d'); g.scale(dpr, dpr); g.clearRect(0, 0, r.width, r.height);\n      g.lineWidth = 1.6; g.strokeStyle = ink; g.lineJoin = 'round';\n      const W = r.width, H = r.height, cx = W / 2, base = H - 14;\n      g.strokeStyle = steel; g.beginPath(); g.moveTo(10, base); g.lineTo(W - 10, base); g.stroke();\n      g.strokeStyle = ink;\n      const kind = cv.dataset.draw;\n      if (kind === 'grind') {\n        g.beginPath(); g.moveTo(cx - 34, 18); g.lineTo(cx + 34, 18); g.lineTo(cx + 18, 52); g.lineTo(cx - 18, 52); g.closePath(); g.stroke();\n        g.strokeRect(cx - 30, 52, 60, 66); g.strokeRect(cx - 40, base - 14, 80, 14);\n        g.beginPath(); g.arc(cx, 85, 14, 0, Math.PI * 2); g.stroke();\n        g.strokeStyle = brass; g.beginPath(); g.moveTo(cx, 85); g.lineTo(cx + 10, 76); g.stroke();\n      } else {\n        const groups = kind === 'duo' ? 2 : 1, w = kind === 'duo' ? Math.min(220, W - 40) : 130, x = cx - w / 2;\n        g.strokeRect(x, 26, w, base - 40);\n        g.beginPath(); g.moveTo(x, 26); g.lineTo(x + 12, 14); g.lineTo(x + w - 12, 14); g.lineTo(x + w, 26); g.stroke();\n        for (let i = 0; i < groups; i++) {\n          const gx = groups === 1 ? cx : x + w * (i === 0 ? .32 : .68);\n          g.strokeRect(gx - 14, 62, 28, 12);\n          g.beginPath(); g.moveTo(gx + 14, 68); g.lineTo(gx + 32, 68); g.stroke();\n          g.strokeStyle = brass; g.beginPath(); g.moveTo(gx - 5, 80); g.lineTo(gx - 5, 92); g.moveTo(gx + 5, 80); g.lineTo(gx + 5, 92); g.stroke();\n          g.strokeStyle = ink; g.strokeRect(gx - 9, 96, 18, 14);\n        }\n        g.beginPath(); g.arc(x + w - 22, 42, 8, 0, Math.PI * 2); g.stroke();\n        g.strokeStyle = brass; g.beginPath(); g.moveTo(x + w - 22, 42); g.lineTo(x + w - 17, 37); g.stroke();\n      }\n    });\n  }\n  drawAll();\n  addEventListener('resize', drawAll);\n  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawAll);\n</script>\n</body>\n</html>\n",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-cache"
+              }
+            ]
+          }
+        }
+      },
+      "id": "56a8abed-254d-4ce2-979a-90744b6b0754",
+      "name": "Send public website",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        432,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "path": "brewtec/employees",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "03fe9708-8381-48c1-be12-199dc79d67f4",
+      "name": "Employee area",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        176,
+        224
+      ],
+      "webhookId": "d539e656-042a-4ed0-85fd-0a03dfdb983e"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Read login  (Workflow 5, JavaScript)\n// Decides if the browser login box must be shown.\n// Basic Auth: the browser remembers the last typed login and sends it again on every request,\n// also when the user clicks \"Employee login\" on the public page later.\n// After a wrong login, \"Wrong login\" sets a short cookie bt_bad=<h> (15 minutes). h is a short\n// hash of that wrong login, it cannot be turned back into the password.\n// When the browser sends the same old wrong login again, we show the login box instead of\n// checking it again. So the user can type a new login, and one wrong try is counted only once.\nconst j = $input.first().json;\nconst auth = String(j.headers?.authorization || '');\nconst retry = String(j.query?.retry || '');\nconst cookie = String(j.headers?.cookie || '');\nconst bad = (cookie.match(/(?:^|;\\s*)bt_bad=([0-9a-f]{8})/) || [])[1] || '';\nconst fnv = s => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); };\nconst h = auth ? fnv(auth) : '';\nreturn [{ json: { auth, h, ask_again: !auth || retry === h || bad === h } }];\n"
+      },
+      "id": "760f010e-0201-4f49-a42c-1f8a22b34987",
+      "name": "Read login",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "15023579-15cc-438b-9f28-2be8394ce339",
+              "leftValue": "={{ $json.ask_again }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "0494d781-ac30-4e6b-9045-3720dff8eac4",
+      "name": "Ask for login?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>BrewTec</title><style>body{font-family:Arial,sans-serif;background:#eef0ee;color:#1c1f1e;display:grid;place-items:center;min-height:100vh;margin:0}main{background:#f8f9f8;border:1px solid #d5d9d6;border-radius:12px;padding:32px 36px;max-width:440px}h1{font-size:22px;margin:0 0 12px;color:#b5402f}p{line-height:1.5;margin:0 0 8px}a.btn{display:inline-block;margin-top:12px;background:#a8761c;color:#fffaf0;text-decoration:none;font-weight:600;padding:10px 20px;border-radius:8px}</style></head><body><main><h1>Wrong e-mail or password</h1><p>Your BrewTec work e-mail or your website password is not correct. Please try again.</p><p>After 5 wrong attempts the account is locked for 15 minutes. Locked out or no login yet? Ask People Ops at people@brewtec.de.</p><p lang=\"de\">E-Mail oder Passwort ist falsch. Bitte erneut versuchen.</p><a class=\"btn\" href=\"?retry={{ $('Read login').first().json.h }}\">Try again</a></main></body></html>",
+        "options": {
+          "responseCode": 403,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Set-Cookie",
+                "value": "=bt_bad={{ $('Read login').first().json.h }}; Path=/webhook/brewtec; Max-Age=900; HttpOnly; SameSite=Lax"
+              }
+            ]
+          }
+        }
+      },
+      "id": "affc4981-0c09-4e9e-999f-43362c5de431",
+      "name": "Wrong login",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1296,
+        320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Website address": {
+      "main": [
+        [
+          {
+            "node": "Send public website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check login": {
+      "main": [
+        [
+          {
+            "node": "Login ok?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Login check unavailable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login ok?": {
+      "main": [
+        [
+          {
+            "node": "Send website",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wrong login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Employee area": {
+      "main": [
+        [
+          {
+            "node": "Read login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read login": {
+      "main": [
+        [
+          {
+            "node": "Ask for login?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask for login?": {
+      "main": [
+        [
+          {
+            "node": "Ask for login",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

@@ -1,0 +1,1418 @@
+{
+  "name": "1 - BrewTec intake and HR approval",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1. Intake and HR approval\nTwo ways in: Workday (workflow 8 reads the Workday new-hire report and starts this workflow per hire) or the form as a manual fallback. Code rules check the hire and build the task plan. Gemini only writes the welcome text. Nothing leaves the company before HR clicks Approve.\n\n**Setup**\n1. Fill every field in **Config**. hr_inbox and the webhooks must be real.\n2. Pick credentials: Postgres (Supabase Session pooler), Gemini, Gmail OAuth2, GitHub.\n3. Jira runs through the mcp-atlassian container. Keep use_jira false until it runs.\n4. Open the form URL from **New hire form** to test.\n5. Settings > Error workflow: 6 - BrewTec error alerts.\n\n**From HR system** receives hires from workflow 8 with the same fields as the form plus hris_id. The Workday worker id is the duplicate key, and a rejected hire is marked in workday_sync with the reason.",
+        "height": 460,
+        "width": 460,
+        "color": 4
+      },
+      "id": "9e048724-9fbb-4589-9e03-7b726c60db39",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4880,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "BrewTec new hire request",
+        "formDescription": "People Ops only. Starts the onboarding after HR approval. Do not enter tax, bank or social security details.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "First name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Last name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Private email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Work email",
+              "fieldType": "email",
+              "placeholder": "Leave empty to get a proposed address"
+            },
+            {
+              "fieldLabel": "Department",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Engineering"
+                  },
+                  {
+                    "option": "Customer Success"
+                  },
+                  {
+                    "option": "Warehouse and Logistics"
+                  },
+                  {
+                    "option": "Marketing"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Job title",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Manager name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Manager email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Site",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Koeln"
+                  },
+                  {
+                    "option": "Leverkusen"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Start date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes for People Ops",
+              "fieldType": "textarea",
+              "placeholder": "Optional. No personal ID numbers."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e4c248c0-79e1-4830-9a0e-c065afa2ad50",
+      "name": "New hire form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -4320,
+        640
+      ],
+      "webhookId": "b847009c-94e4-4d71-b634-109fcf0aade3"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "2935c734-6a42-40cb-a671-a18fa0f99fa1",
+      "name": "From HR system",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -4320,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "18ef6339-4990-4dc4-b4e0-2e755abdf81d",
+              "name": "hr_inbox",
+              "value": "YOURNAME+hr@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "c3443c78-6e74-4329-b3cb-c21726dc0d40",
+              "name": "company_domain",
+              "value": "brewtec.de",
+              "type": "string"
+            },
+            {
+              "id": "d5390ef1-15e1-471f-9ee9-8043e6ae7fbd",
+              "name": "notice_days",
+              "value": "14",
+              "type": "string"
+            },
+            {
+              "id": "565a330d-cc7a-440b-8cab-99e4494af016",
+              "name": "chat_url",
+              "value": "http://localhost:5678/webhook/brewtec/employees",
+              "type": "string"
+            },
+            {
+              "id": "639d2d85-6651-435c-b209-0c586e4e28f3",
+              "name": "github_org",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "a008297b-ce83-4aad-9992-9911e505a9e8",
+              "name": "discord_it_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-IT",
+              "type": "string"
+            },
+            {
+              "id": "15d16dee-511f-4112-81b5-2feaa8327b58",
+              "name": "discord_facilities_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-FACILITIES",
+              "type": "string"
+            },
+            {
+              "id": "ae554080-620c-4310-b159-fc23f5c64ca9",
+              "name": "discord_team_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-TEAM",
+              "type": "string"
+            },
+            {
+              "id": "f0bc78be-c72e-4a5e-b815-bac5cedd0531",
+              "name": "use_jira",
+              "value": "false",
+              "type": "string"
+            },
+            {
+              "id": "aab968f7-9b27-42f4-95da-694e87c686f1",
+              "name": "jira_it_project",
+              "value": "IT",
+              "type": "string"
+            },
+            {
+              "id": "41a0448b-6025-459f-8cad-4856a825aed3",
+              "name": "jira_facilities_project",
+              "value": "FAC",
+              "type": "string"
+            },
+            {
+              "id": "9b7f09db-8d31-4a82-9586-d81a2167e4bd",
+              "name": "identity_mode",
+              "value": "simulated",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0e62c6dd-cb01-4b86-be96-a477b9528af9",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4096,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Same person twice: same private e-mail, or the same HR system id\nselect count(*)::int as duplicates\nfrom employees\nwhere (lower(private_email) = lower($1) or (nullif($2, '') is not null and hris_id = $2))\n  and status in ('pending_approval', 'approved');",
+        "options": {
+          "queryReplacement": "={{ [ $json['Private email'], $json.hris_id ?? '' ] }}"
+        }
+      },
+      "id": "644ebfdb-199c-4309-9e80-0009f42e983e",
+      "name": "Check duplicate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3888,
+        640
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7e6cf195-b976-4865-809d-1aa570b4531b",
+              "name": "first_name",
+              "value": "={{ $('Config').item.json['First name'] }}",
+              "type": "string"
+            },
+            {
+              "id": "02b49f1b-30a5-4d68-94e7-a7faff107d83",
+              "name": "last_name",
+              "value": "={{ $('Config').item.json['Last name'] }}",
+              "type": "string"
+            },
+            {
+              "id": "cf9eced8-0ca6-40ac-bd47-20b65881cf8e",
+              "name": "private_email",
+              "value": "={{ $('Config').item.json['Private email'] }}",
+              "type": "string"
+            },
+            {
+              "id": "a698b879-be3f-4a16-aabf-26e825b65595",
+              "name": "work_email",
+              "value": "={{ $('Config').item.json['Work email'] ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "30868475-d7e7-499f-a302-bff097a4669d",
+              "name": "department",
+              "value": "={{ $('Config').item.json['Department'] }}",
+              "type": "string"
+            },
+            {
+              "id": "2afce952-5901-41ff-807c-803d153deded",
+              "name": "job_title",
+              "value": "={{ $('Config').item.json['Job title'] }}",
+              "type": "string"
+            },
+            {
+              "id": "27929670-8323-4bef-91e3-d8bd9c4d25d2",
+              "name": "manager_name",
+              "value": "={{ $('Config').item.json['Manager name'] }}",
+              "type": "string"
+            },
+            {
+              "id": "a34ad386-8d86-4fc8-948e-bf4494fc7a8c",
+              "name": "manager_email",
+              "value": "={{ $('Config').item.json['Manager email'] }}",
+              "type": "string"
+            },
+            {
+              "id": "2d63c2df-a985-4c15-964e-eaee9ff5f33a",
+              "name": "site",
+              "value": "={{ $('Config').item.json['Site'] }}",
+              "type": "string"
+            },
+            {
+              "id": "a82a713a-a4d1-40f1-936a-52813569af37",
+              "name": "start_date",
+              "value": "={{ $('Config').item.json['Start date'] }}",
+              "type": "string"
+            },
+            {
+              "id": "a244eb03-0089-41e7-8962-e530d9a8f3fe",
+              "name": "notes",
+              "value": "={{ $('Config').item.json['Notes for People Ops'] ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "c3ba727a-ff80-464d-8f25-505d0879ce1e",
+              "name": "duplicates",
+              "value": "={{ $json.duplicates ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "779e7ca8-2a77-402f-9c58-5425d0811bdd",
+              "name": "today",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "492278df-85b3-4f35-a0d7-8ea817394510",
+              "name": "company_domain",
+              "value": "={{ $('Config').item.json.company_domain }}",
+              "type": "string"
+            },
+            {
+              "id": "e62f3fa2-65da-4035-bcd8-a4ac4e0a794e",
+              "name": "notice_days",
+              "value": "={{ $('Config').item.json.notice_days }}",
+              "type": "string"
+            },
+            {
+              "id": "c7f3fda1-4e0c-40c3-9c0f-b0f950280b1b",
+              "name": "hris_id",
+              "value": "={{ $('Config').item.json.hris_id ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "62fe87d7-6e87-4ab8-b679-196da254adf7",
+              "name": "source",
+              "value": "={{ $('Config').item.json.hris_id ? 'hr system' : 'form' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "106c3878-2a06-41ed-b81e-3d3654abf483",
+      "name": "Collect form data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3664,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Validate and plan  (Workflow 1, JavaScript, Run Once for All Items)\n// Rules decide here, not the AI. Checks the form, proposes a work email,\n// removes personal identifiers and builds the task plan.\nconst PII_PATTERNS = [\n  /\\b[A-Z]{2}\\d{2}(?:[ ]?[A-Z0-9]{4}){3,7}(?:[ ]?[A-Z0-9]{1,3})?\\b/i,\n  /(?<!\\d)\\d{2}[ ]?\\d{3}[ ]?\\d{3}[ ]?\\d{3}(?!\\d)/i,\n  /\\b\\d{2}[ ]?\\d{6}[ ]?[A-Z][ ]?\\d{3}\\b/i,\n];\nconst PII_KEYWORDS = /(steuer-?id|steueridentifikationsnummer|tax[ -]?id|iban|sozialversicherungsnummer|sv-?nummer|rentenversicherungsnummer|social security|passport|reisepass|personalausweis|krankenversicherungsnummer|bank account|kontonummer)/i;\nconst REMOVED = '[removed: personal data]';\n\nfunction hasPii(value) {\n  if (!value) return false;\n  if (PII_PATTERNS.some(p => p.test(value))) return true;\n  if (PII_KEYWORDS.test(value)) {\n    const compact = value.replace(/[ .\\-\\/]/g, '');\n    // keyword plus a long number or an ID-like token (6+ characters with 3+ digits)\n    if (/\\d{6,}/.test(compact) || /\\b(?=[A-Z0-9]*\\d[A-Z0-9]*\\d[A-Z0-9]*\\d)[A-Z0-9]{6,}\\b/i.test(value)) return true;\n  }\n  return false;\n}\n// Names to e-mail: German rules first (ä -> ae), then letters Unicode does not split (ı, ł, đ),\n// then every other accent is removed (ş -> s, ć -> c, ễ -> e). Bias test: Turkish, Polish, Serbian\n// and Vietnamese names lost letters with the old fixed list. Names in other scripts (Cyrillic,\n// Chinese) give no Latin letters, so a neutral address is proposed and HR sets the real one.\nconst SPECIAL = { 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss', 'æ': 'ae', 'œ': 'oe', 'ø': 'o', 'ı': 'i', 'ł': 'l', 'đ': 'd', 'ð': 'd', 'þ': 'th', 'ħ': 'h' };\nconst DEPARTMENTS = ['Engineering', 'Customer Success', 'Warehouse and Logistics', 'Marketing'];\nconst SITES = ['Koeln', 'Leverkusen'];\nconst EMAIL_RE = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;\n\n// key, title, owner team, days relative to start date, auto email, link key\nconst TASKS = [\n  ['welcome_email', 'Send welcome email with personal code and assistant link', 'hr', -14, true, 'chat_url'],\n  ['pfb_form', 'Employee payroll details are submitted by the new hire (secure form)', 'new_hire', -13, true, 'pfb_form_url'],\n  ['contract_check', 'Check that the signed contract is on file', 'hr', -12, false, ''],\n  ['laptop_reserve', 'Reserve a device from stock', 'it', -10, false, ''],\n  ['account_create', 'Create work account and add knowledge base group', 'it', -7, false, ''],\n  ['laptop_setup', 'Set up and image the device', 'it', -5, false, ''],\n  ['vpn_access', 'Grant VPN access after manager approval', 'it', -5, false, ''],\n  ['mfa_tap', 'Prepare a Temporary Access Pass for day 1', 'it', -1, false, ''],\n  ['badge', 'Prepare access badge', 'facilities', -5, false, ''],\n  ['desk', 'Assign desk or locker', 'facilities', -5, false, ''],\n  ['parking', 'Answer parking request if needed', 'facilities', -3, false, ''],\n  ['buddy', 'Name an onboarding buddy', 'manager', -7, false, ''],\n  ['first_week_plan', 'Share the first week plan', 'manager', -3, false, ''],\n  ['team_announce', 'Announce the new colleague to the team', 'manager', -2, false, ''],\n  ['policies_send', 'Send company policies to read', 'hr', -3, true, 'policies_url'],\n  ['day1_welcome', 'Welcome on day 1 and hand over the device', 'manager', 0, false, ''],\n  ['code_of_conduct', 'Sign code of conduct and data protection commitment', 'new_hire', 0, false, ''],\n  ['safety_brief', 'Attend the workplace safety briefing', 'new_hire', 1, false, ''],\n  ['personio_setup', 'Record working time in Personio', 'new_hire', 1, false, ''],\n  ['it_security_training', 'Complete the IT security training', 'new_hire', 3, true, 'training_url'],\n  ['check_in_week1', 'Week 1 check-in with manager', 'manager', 5, false, ''],\n  ['check_in_30', '30-day check-in', 'manager', 30, false, ''],\n  ['survey_30', 'Send 30-day onboarding survey', 'hr', 30, true, 'survey_url'],\n  ['check_in_60', '60-day check-in', 'manager', 60, false, ''],\n  ['probation_review', 'Prepare the probation review', 'hr', 85, false, ''],\n];\nconst WAREHOUSE_TASK = ['warehouse_safety', 'Warehouse safety instruction and tablet handover', 'facilities', 0, false, ''];\n\nconst text = v => (v === null || v === undefined ? '' : String(v).trim());\nconst slug = v => {\n  let s = v.toLowerCase();\n  for (const [k, r] of Object.entries(SPECIAL)) s = s.split(k).join(r);\n  s = s.normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '');\n  return s.replace(/\\s+/g, '-').replace(/[^a-z0-9\\-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');\n};\n// Dates as YYYY-MM-DD strings, calculated in UTC so time zones cannot shift a day\nfunction parseDate(value) {\n  const v = text(value);\n  let m = v.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);\n  if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);\n  m = v.match(/^(\\d{2})[.\\/](\\d{2})[.\\/](\\d{4})/);\n  if (m) return Date.UTC(+m[3], +m[2] - 1, +m[1]);\n  return null;\n}\nconst DAY = 86400000;\nconst iso = t => new Date(t).toISOString().slice(0, 10);\n\nconst out = [];\nfor (const item of $input.all()) {\n  const j = item.json;\n  const reasons = [];\n  const domain = text(j.company_domain).toLowerCase() || 'brewtec.de';\n  const noticeDays = parseInt(text(j.notice_days) || '14', 10);\n  const today = parseDate(j.today) ?? parseDate(new Date().toISOString());\n\n  const first = text(j.first_name);\n  const last = text(j.last_name);\n  const privateEmail = text(j.private_email).toLowerCase();\n  let workEmail = text(j.work_email).toLowerCase();\n  const department = text(j.department);\n  let jobTitle = text(j.job_title);\n  const managerName = text(j.manager_name);\n  const managerEmail = text(j.manager_email).toLowerCase();\n  const site = text(j.site);\n  let notes = text(j.notes);\n\n  for (const [label, value] of [['First name', first], ['Last name', last], ['Private email', privateEmail],\n    ['Department', department], ['Job title', jobTitle], ['Manager name', managerName],\n    ['Manager email', managerEmail], ['Site', site]]) {\n    if (!value) reasons.push(`${label} is missing.`);\n  }\n  if (privateEmail && !EMAIL_RE.test(privateEmail)) reasons.push('Private email is not a valid address.');\n  if (privateEmail.endsWith('@' + domain)) reasons.push('Private email must be a personal address, not a company address.');\n  if (managerEmail && !managerEmail.endsWith('@' + domain)) reasons.push(`Manager email must end with @${domain}.`);\n  if (department && !DEPARTMENTS.includes(department)) reasons.push(`Department ${department} is not one of the four BrewTec departments.`);\n  if (site && !SITES.includes(site)) reasons.push('Site must be Koeln or Leverkusen.');\n\n  let emailWasProposed = false;\n  if (workEmail) {\n    if (!workEmail.endsWith('@' + domain) || !EMAIL_RE.test(workEmail)) {\n      reasons.push(`Work email must end with @${domain}. Leave it empty to get a proposal.`);\n    }\n  } else if (first && last) {\n    const a = slug(first), b = slug(last);\n    workEmail = a && b ? `${a}.${b}@${domain}` : `new-hire-${slug(text(j.hris_id)) || Date.now().toString(36)}@${domain}`;\n    emailWasProposed = true;\n  }\n\n  const start = parseDate(j.start_date);\n  let daysAhead = null;\n  if (start === null) {\n    reasons.push('Start date is missing or not a date.');\n  } else {\n    daysAhead = Math.round((start - today) / DAY);\n    if (daysAhead < noticeDays) {\n      reasons.push(`Start date is ${daysAhead} days away. BrewTec needs at least ${noticeDays} days notice. Shorter notice is handled manually by People Ops.`);\n    }\n  }\n\n  if ((parseInt(j.duplicates, 10) || 0) > 0) reasons.push('An open onboarding for this private email already exists.');\n\n  let piiRemoved = false;\n  if (hasPii(notes)) { notes = REMOVED; piiRemoved = true; }\n  if (hasPii(jobTitle)) {\n    jobTitle = REMOVED; piiRemoved = true;\n    reasons.push('Job title contained personal data and was removed. Please submit again.');\n  }\n\n  const profile = { 'Engineering': 'developer', 'Warehouse and Logistics': 'warehouse' }[department] ?? 'standard';\n\n  const tasks = [];\n  if (start !== null) {\n    const plan = department === 'Warehouse and Logistics' ? [...TASKS, WAREHOUSE_TASK] : TASKS;\n    for (const [key, title, team, offset, auto, link] of plan) {\n      tasks.push({ key, title, team, due: iso(Math.max(start + offset * DAY, today)), auto, link });\n    }\n  }\n\n  const groups = ['all-employees', 'kb-readers', 'dept-' + slug(department || 'none')];\n  out.push({ json: {\n    valid: reasons.length === 0,\n    reasons,\n    reason_text: reasons.join(' '),\n    first_name: first,\n    last_name: last,\n    display_name: `${first} ${last}`.trim(),\n    private_email: privateEmail,\n    work_email: workEmail,\n    email_was_proposed: emailWasProposed,\n    department,\n    job_title: jobTitle,\n    manager_name: managerName,\n    manager_email: managerEmail,\n    site,\n    start_date: start !== null ? iso(start) : '',\n    days_ahead: daysAhead,\n    notes,\n    pii_removed: piiRemoved,\n    profile,\n    groups,\n    groups_pg: '{' + groups.join(',') + '}',\n    task_count: tasks.length,\n    tasks_json: JSON.stringify(tasks),\n  } });\n}\nreturn out;\n"
+      },
+      "id": "1da27fbb-4c42-4ddd-94aa-19c624941ada",
+      "name": "Validate and plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3440,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ddc3576f-90ae-4b28-902c-cd33a0b70687",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "dea082a6-f3b7-4c63-8f7f-f7688c2e09d7",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3216,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- A hire from the HR system is marked there as rejected, with the reason for HR\nwith h as (\n  insert into workday_sync (worker_id, sync_status, sync_note, synced_at)\n  select $2, 'rejected', left($1, 500), now() where $2 <> ''\n  on conflict (worker_id) do update\n    set sync_status = 'rejected', sync_note = excluded.sync_note, synced_at = now()\n  returning 1\n)\ninsert into automation_log (workflow, step, status, detail)\nselect 'wf1', 'validation', 'rejected', $1 || case when $2 <> '' then ' (HR system ' || $2 || ')' else '' end\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.reason_text, $('Collect form data').item.json.hris_id ] }}"
+        }
+      },
+      "id": "05c7ce09-fba6-4f2c-be0c-ee823f1d2e22",
+      "name": "Log rejection",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3008,
+        864
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'New hire not started: ' + $('Validate and plan').item.json.reason_text }}"
+      },
+      "id": "329a7220-67d3-40b2-bde4-77c31614b8c5",
+      "name": "Stop with reason",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        -2784,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into employees (first_name, last_name, private_email, work_email, work_email_proposed,\n  department, job_title, manager_name, manager_email, site, start_date, notes, status, hris_id)\nvalues ($1, $2, $3, $4, $5::boolean, $6, $7, $8, $9, $10, $11::date, $12, 'pending_approval',\n        nullif($13, ''))\nreturning id as employee_id, access_code;",
+        "options": {
+          "queryReplacement": "={{ [ $json.first_name, $json.last_name, $json.private_email, $json.work_email, String($json.email_was_proposed), $json.department, $json.job_title, $json.manager_name, $json.manager_email, $json.site, $json.start_date, $json.notes, $('Collect form data').item.json.hris_id ] }}"
+        }
+      },
+      "id": "f6d4ddf5-fbaa-4294-9649-5f4e06bf9a2a",
+      "name": "Insert employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -3008,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with ins as (\n  insert into onboarding_tasks (employee_id, task_key, title, owner_team, due_date, auto, link_key)\n  select $1::uuid, t->>'key', t->>'title', t->>'team', (t->>'due')::date,\n         (t->>'auto')::boolean, nullif(t->>'link', '')\n  from jsonb_array_elements($2::jsonb) t\n  returning 1\n), lg as (\n  insert into automation_log (employee_id, workflow, step, status, detail)\n  values ($1::uuid, 'wf1', 'task_plan', 'ok', 'Waiting for HR approval')\n  returning 1\n)\nselect (select count(*) from ins)::int as tasks_created;",
+        "options": {
+          "queryReplacement": "={{ [ $json.employee_id, $('Validate and plan').item.json.tasks_json ] }}"
+        }
+      },
+      "id": "9ae38b09-e733-4f28-8f36-db914366e146",
+      "name": "Insert task plan",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -2784,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a short, warm welcome email body in English for a new employee of BrewTec GmbH, a coffee equipment company with sites in Koeln and Leverkusen.\n\nFacts you may use, and nothing else:\n- First name: {{ $('Validate and plan').item.json.first_name }}\n- Job title: {{ $('Validate and plan').item.json.job_title }}\n- Department: {{ $('Validate and plan').item.json.department }}\n- Site: {{ $('Validate and plan').item.json.site }}\n- Start date: {{ $('Validate and plan').item.json.start_date }}\n- Manager: {{ $('Validate and plan').item.json.manager_name }}\n\nRules:\n- Start with \"Dear <first name>,\".\n- 60 to 150 words. Plain text. No markdown, no placeholders, no brackets.\n- Do not mention salary, pay, bonus, money, contract terms, probation or working hours.\n- Do not invent facts, dates, people, links or benefits.\n- Do not add a sign-off. People Ops adds it."
+      },
+      "id": "734da28e-1a0f-407f-8d3a-3735e4e97f58",
+      "name": "Write welcome draft",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        -2560,
+        544
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "cd83fd8a-2cb3-426e-90be-c201a4d3298d",
+      "name": "Gemini (welcome draft)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -2560,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "78ce9da0-1c81-468c-b945-6ffd4481e92f",
+              "name": "draft",
+              "value": "={{ $json.text ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "2bf2ee64-5306-46b5-9df1-4469d56a68ef",
+              "name": "hire",
+              "value": "={{ $('Validate and plan').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "1e72f749-334c-419b-ac6e-b61e4c6da18b",
+              "name": "employee",
+              "value": "={{ $('Insert employee').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "8f274501-2441-4de3-aa14-eba19dc4a312",
+              "name": "chat_url",
+              "value": "={{ $('Config').first().json.chat_url }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5b0720d8-575a-42d6-bca3-4d99e3a20542",
+      "name": "Collect draft",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2256,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Check welcome draft  (Workflow 1, JavaScript, Run Once for All Items)\n// The AI only writes text. This code checks the draft and falls back to a template.\n// The personal code and the assistant link are added here by code, never by the AI.\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst MONEY = /(\\d[\\d.,]*\\s*(€|eur\\b|euro))|((€|eur\\b|euro)\\s*\\d)/;\nconst FORBIDDEN = ['salary', 'gehalt', 'bonus', 'probation', 'probezeit', 'kündigung', 'notice period',\n  'contract', 'vertrag', 'stock option', 'equity', 'raise', 'pay rise', 'overtime pay'];\n\nreturn $input.all().map(item => {\n  const j = item.json;\n  const hire = j.hire ?? {};\n  const emp = j.employee ?? {};\n  let draft = String(j.draft ?? '').trim();\n  const chatUrl = String(j.chat_url ?? '').trim();\n  const first = hire.first_name ?? '';\n\n  const issues = [];\n  const low = draft.toLowerCase();\n  if (!draft) issues.push('empty draft');\n  if (MONEY.test(low)) issues.push('mentions money');\n  for (const word of FORBIDDEN) if (low.includes(word)) issues.push(`mentions '${word}'`);\n  if (/\\[[^\\]]*\\]|\\{[^}]*\\}|<[^>]*>/.test(draft)) issues.push('contains placeholders or markup');\n  if (first && !low.includes(first.toLowerCase())) issues.push('does not greet the new hire by name');\n  const words = draft.split(/\\s+/).filter(Boolean).length;\n  if (words < 40 || words > 220) issues.push(`length ${words} words, expected 40 to 220`);\n\n  const draftOk = issues.length === 0;\n  if (!draftOk) {\n    draft = `Dear ${first},\\n\\nwelcome to BrewTec. We are glad that you join the ${hire.department ?? ''} team ` +\n      `as ${hire.job_title ?? ''} on ${hire.start_date ?? ''} at our ${hire.site ?? ''} site. Your manager ` +\n      `${hire.manager_name ?? ''} and the People Ops team are preparing your first days, so your device, ` +\n      `account and badge are ready when you arrive. Before you start you will receive a few short emails, ` +\n      `for example the employee payroll details and our company policies.`;\n  }\n\n  const code = emp.access_code ?? '';\n  const welcomeText = `${draft}\\n\\nYour BrewTec e-mail address will be: ${hire.work_email ?? ''}\\n` +\n    `You get your password together with your laptop on your first day. We never send passwords by e-mail. ` +\n    `Until then, our IT team contacts you with a separate login for the employee area.\\n\\n` +\n    `Your personal code: ${code}\\nBrewTec company assistant: ${chatUrl}\\n` +\n    `Ask the assistant anything about BrewTec policies. Give it your code to see your own onboarding tasks. ` +\n    `Please never send tax, bank or social security details by email or chat.\\n\\nBest regards\\nPeople Ops, BrewTec GmbH`;\n\n  const rows = [\n    ['Name', hire.display_name ?? ''],\n    ['Department', hire.department ?? ''],\n    ['Job title', hire.job_title ?? ''],\n    ['Site', hire.site ?? ''],\n    ['Start date', `${hire.start_date ?? ''} (${hire.days_ahead ?? ''} days ahead)`],\n    ['Manager', hire.manager_name ?? ''],\n    ['Work email', `${hire.work_email ?? ''} (${hire.email_was_proposed ? 'proposed from the name' : 'given on the form'})`],\n    ['Device profile', hire.profile ?? ''],\n    ['Task plan', `${hire.task_count ?? 0} tasks planned`],\n    ['Personal data check', hire.pii_removed ? 'Personal data was found in the notes and removed' : 'No personal identifiers found'],\n    ['AI draft check', draftOk ? 'Passed' : `Failed (${issues.join(', ')}), template used`],\n  ];\n  const table = rows.map(([k, v]) => `<tr><td><b>${esc(k)}</b></td><td>${esc(v)}</td></tr>`).join('');\n  const approvalHtml = `<p>A new hire is waiting for your approval. Nothing has been sent yet.</p>` +\n    `<table cellpadding='4'>${table}</table>` +\n    `<p><b>Welcome email that will be sent after approval:</b></p>` +\n    `<p>${esc(welcomeText).replace(/\\n/g, '<br>')}</p>` +\n    `<p>Approve starts the onboarding: welcome email, device reservation, account plan, ` +\n    `Discord hand-offs and tickets. Send back stops the run.</p>`;\n\n  return { json: {\n    employee_id: emp.employee_id ?? '',\n    access_code: code,\n    first_name: first,\n    last_name: hire.last_name ?? '',\n    display_name: hire.display_name ?? '',\n    private_email: hire.private_email ?? '',\n    work_email: hire.work_email ?? '',\n    department: hire.department ?? '',\n    job_title: hire.job_title ?? '',\n    site: hire.site ?? '',\n    start_date: hire.start_date ?? '',\n    manager_name: hire.manager_name ?? '',\n    profile: hire.profile ?? 'standard',\n    groups_pg: hire.groups_pg ?? '{all-employees,kb-readers}',\n    tasks_json: hire.tasks_json ?? '[]',\n    draft_ok: draftOk,\n    draft_issues: issues.join(', '),\n    welcome_subject: `Welcome to BrewTec, ${first}`,\n    welcome_text: welcomeText,\n    approval_subject: `Approval needed: new hire ${hire.display_name ?? ''}, start ${hire.start_date ?? ''}`,\n    approval_html: approvalHtml,\n  } };\n});\n"
+      },
+      "id": "0cef473c-5b16-44f4-8dec-3c902d9431ad",
+      "name": "Check welcome draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2048,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $('Config').first().json.hr_inbox }}",
+        "subject": "={{ $json.approval_subject }}",
+        "message": "={{ $json.approval_html }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "disapproveLabel": "Send back"
+          }
+        },
+        "options": {}
+      },
+      "id": "83a7b780-12e8-4e31-8126-d9559bfb415f",
+      "name": "HR approval",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1824,
+        544
+      ],
+      "webhookId": "06a549ce-14cf-4b24-bad4-ed9f37455a1d"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1033902-b08d-498b-9a16-607cb1488be8",
+              "leftValue": "={{ $json.data.approved }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "9cf62db1-21ff-4680-9571-d0b255ca2ae4",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1600,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with u as (\n  update employees set status = 'sent_back' where id = $1::uuid returning id\n)\ninsert into automation_log (employee_id, workflow, step, status, detail)\nselect id, 'wf1', 'hr_approval', 'sent_back', 'HR sent the request back. Nothing was sent.' from u\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Check welcome draft').item.json.employee_id ] }}"
+        }
+      },
+      "id": "a647af90-b619-4a52-ad4b-2cfa466299b9",
+      "name": "Mark sent back",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1376,
+        768
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with u as (\n  update employees set status = 'approved', approved_at = now(), approved_by = $2\n  where id = $1::uuid and status = 'pending_approval'\n  returning id\n)\ninsert into automation_log (employee_id, workflow, step, status, detail)\nselect id, 'wf1', 'hr_approval', 'approved', 'Recorded human approval by ' || $2 from u\nreturning employee_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Check welcome draft').item.json.employee_id, $('Config').first().json.hr_inbox ] }}"
+        }
+      },
+      "id": "90cdd492-e733-4016-8053-85466cf66f73",
+      "name": "Record approval",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1376,
+        544
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Check welcome draft').item.json.private_email }}",
+        "subject": "={{ $('Check welcome draft').item.json.welcome_subject }}",
+        "emailType": "text",
+        "message": "={{ $('Check welcome draft').item.json.welcome_text }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "5ba4b7c3-9a6f-4f74-a1c5-70927aee5187",
+      "name": "Send welcome email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -1168,
+        544
+      ],
+      "webhookId": "9793d5a2-675c-40e5-ad9a-b38915f73167",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with done as (\n  update onboarding_tasks set completed_at = now(), completed_by = 'wf1'\n  where employee_id = $1::uuid and task_key = 'welcome_email' and completed_at is null\n  returning 1\n)\nselect reserve_laptop($1::uuid, $2) as laptop;",
+        "options": {
+          "queryReplacement": "={{ [ $('Check welcome draft').item.json.employee_id, $('Check welcome draft').item.json.profile ] }}"
+        }
+      },
+      "id": "a7734aaa-992c-477c-8bd7-c227015547b7",
+      "name": "Reserve laptop",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -944,
+        544
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select plan_directory_account($1::uuid, $2, $3, $4::text[]) as account;",
+        "options": {
+          "queryReplacement": "={{ [ $('Check welcome draft').item.json.employee_id, $('Check welcome draft').item.json.work_email, $('Check welcome draft').item.json.display_name, $('Check welcome draft').item.json.groups_pg ] }}"
+        }
+      },
+      "id": "9c71f689-399e-40d4-b3ca-c3028c7bbcf5",
+      "name": "Plan account",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -720,
+        544
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8f425564-baf9-4e81-8a78-2c3039943863",
+              "name": "hire",
+              "value": "={{ $('Check welcome draft').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "d092779c-6a8f-482a-b661-d5d5c803f722",
+              "name": "laptop",
+              "value": "={{ $('Reserve laptop').item.json.laptop }}",
+              "type": "object"
+            },
+            {
+              "id": "86c03280-4bf6-4739-9cf1-252586d8ee3b",
+              "name": "account",
+              "value": "={{ $json.account }}",
+              "type": "object"
+            },
+            {
+              "id": "d6b408fc-ae45-4197-8263-17e0ce32866e",
+              "name": "use_jira",
+              "value": "={{ $('Config').first().json.use_jira }}",
+              "type": "string"
+            },
+            {
+              "id": "49087f01-5ed4-4573-b872-cf89735a3dee",
+              "name": "jira_it_project",
+              "value": "={{ $('Config').first().json.jira_it_project }}",
+              "type": "string"
+            },
+            {
+              "id": "0f567ddb-e80b-45ab-a04c-02d5558d24c9",
+              "name": "jira_facilities_project",
+              "value": "={{ $('Config').first().json.jira_facilities_project }}",
+              "type": "string"
+            },
+            {
+              "id": "e7d17a95-d977-4a94-9a08-f5db2f296d48",
+              "name": "github_org",
+              "value": "={{ $('Config').first().json.github_org }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6db06fc6-2308-40d7-804b-c7213f0a112a",
+      "name": "Collect hand-off data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -496,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build team messages  (Workflow 1, JavaScript, Run Once for All Items)\n// Splits the approved task plan by team. Builds the Discord posts and the Jira ticket list.\n// Only first name and last initial go to Discord (data minimisation).\nconst truthy = v => ['true', '1', 'yes', 'on'].includes(String(v).trim().toLowerCase());\nconst clip = (s, n = 1900) => (s.length <= n ? s : s.slice(0, n - 3) + '...');\n\nreturn $input.all().map(item => {\n  const j = item.json;\n  const hire = j.hire ?? {};\n  const laptop = j.laptop ?? {};\n  const account = j.account ?? {};\n  let tasks = [];\n  try { tasks = JSON.parse(hire.tasks_json || '[]'); } catch (e) { tasks = []; }\n\n  const who = `${hire.first_name ?? ''} ${(hire.last_name || ' ')[0]}.`.trim();\n  const head = `**New hire: ${who}**, ${hire.job_title ?? ''}, ${hire.department ?? ''}, ${hire.site ?? ''}, starts ${hire.start_date ?? ''}`;\n  const lines = team => tasks.filter(t => t.team === team).map(t => `- ${t.title} (due ${t.due})`);\n\n  const device = laptop.ok ? `Reserved device: ${laptop.asset_tag} (${laptop.model})` : `Device: ${laptop.message ?? 'not reserved'}`;\n  const acc = `Planned account: ${account.upn ?? ''} (${account.mode ?? 'simulated'}, ${account.status ?? ''})`;\n\n  const tickets = [];\n  if (truthy(j.use_jira)) {\n    for (const [team, project] of [['it', j.jira_it_project], ['facilities', j.jira_facilities_project]]) {\n      if (!project) continue;\n      // laptop_reserve is already done by the reserve_laptop function\n      for (const t of tasks.filter(t => t.team === team && t.key !== 'laptop_reserve')) {\n        tickets.push({\n          project_key: String(project).trim(),\n          summary: `${t.title} for ${who} (start ${hire.start_date ?? ''})`,\n          issue_type: 'Task',\n          description: `Onboarding task for ${who}, ${hire.department ?? ''}, ${hire.site ?? ''}. Due ${t.due}. ` +\n            `Created by the BrewTec onboarding agent after HR approval.`,\n          // jira_create_issue expects text for these, never null\n          assignee: '',\n          components: '',\n          additional_fields: '{}',\n        });\n      }\n    }\n  }\n  const githubOrg = String(j.github_org ?? '').trim();\n\n  return { json: {\n    employee_id: hire.employee_id ?? '',\n    it_message: clip([head, device, acc, 'IT tasks:', ...lines('it')].join('\\n')),\n    facilities_message: clip([head, 'Facilities tasks:', ...lines('facilities')].join('\\n')),\n    team_message: clip([head, `Manager: ${hire.manager_name ?? ''}`, 'Manager tasks:', ...lines('manager')].join('\\n')),\n    needs_github: hire.department === 'Engineering' && Boolean(githubOrg),\n    github_org: githubOrg,\n    invite_email: hire.private_email ?? '',\n    use_jira: tickets.length > 0,\n    jira_ticket_count: tickets.length,\n    jira_tickets_json: JSON.stringify(tickets),\n  } };\n});\n"
+      },
+      "id": "7ead7ca2-7abf-4503-bff7-1ae725987d66",
+      "name": "Build team messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_it_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.it_message }) }}",
+        "options": {}
+      },
+      "id": "9596defd-fded-4d36-9fe7-db0407e706b5",
+      "name": "Post to #it",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        192
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_facilities_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.facilities_message }) }}",
+        "options": {}
+      },
+      "id": "3f91ed67-9bfd-47b4-9806-07ca3d17f285",
+      "name": "Post to #facilities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        352
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_team_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.team_message }) }}",
+        "options": {}
+      },
+      "id": "e5b12f85-1cb6-4d48-85e7-df361fb5f2e2",
+      "name": "Post to #team",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        512
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d2cfe780-107b-4317-bc3e-4cb765a8e6e7",
+              "leftValue": "={{ $json.needs_github }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "1abd1c94-4d4f-4f3f-af88-ec952b2ccb9b",
+      "name": "Engineering?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/orgs/{{ $json.github_org }}/invitations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.invite_email, role: 'direct_member' }) }}",
+        "options": {}
+      },
+      "id": "f1e0be72-6ae2-41d4-b0a4-9ac41b11f320",
+      "name": "GitHub org invite",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        672
+      ],
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5d41a538-6cc8-47f4-8368-872ff8af5525",
+              "leftValue": "={{ $json.use_jira }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "6f578e94-f1c2-4cdf-bd8e-33fcc2a6036c",
+              "leftValue": "={{ $json.jira_ticket_count }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "rightValue": 0
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "a369e3fc-8ab2-4ba1-bef4-c45c2640403c",
+      "name": "Create Jira tickets?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create one Jira issue for each ticket in this JSON list:\n{{ $json.jira_tickets_json }}",
+        "options": {
+          "systemMessage": "You create Jira issues through the jira_create_issue tool. You decide nothing yourself.\nRules:\n- Call jira_create_issue exactly once per ticket in the list.\n- Pass every field of the ticket exactly as given: project_key, summary, issue_type, description, assignee, components and additional_fields. Never send null.\n- Never create tickets that are not in the list. Never change, search or delete other issues.\n- When done, reply only with a JSON list of the created issue keys, for example [\"IT-12\", \"IT-13\"]. If a call fails, add the error text for that ticket.",
+          "maxIterations": 30
+        }
+      },
+      "id": "5274109f-02e6-46f5-a188-84067a7397ef",
+      "name": "Jira ticket agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        224,
+        912
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "4d7ad4df-3ac2-4ea3-8ab5-2d3360de45e0",
+      "name": "Gemini (Jira agent)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        160,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://host.docker.internal:9000/mcp",
+        "serverTransport": "httpStreamable",
+        "include": "selected",
+        "includeTools": [
+          "jira_create_issue"
+        ],
+        "options": {}
+      },
+      "id": "99718454-2120-41ae-a00c-81b4bd9adef0",
+      "name": "Jira MCP",
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.1,
+      "position": [
+        352,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into automation_log (employee_id, workflow, step, status, detail)\nvalues ($1::uuid, 'wf1', 'jira_tickets', 'done', left($2, 1000))\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Build team messages').item.json.employee_id, String($json.output ?? $json.error ?? 'no output') ] }}"
+        }
+      },
+      "id": "adeccf0e-650e-4981-a389-a2d2fe2a1d74",
+      "name": "Log Jira result",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        912
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into automation_log (employee_id, workflow, step, status, detail)\nvalues ($1::uuid, 'wf1', 'onboarding_started', 'ok',\n        'Welcome email sent, device and account planned, team hand-offs posted')\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $json.employee_id ] }}"
+        }
+      },
+      "id": "0e2b657d-ff99-4dd7-b6e8-0dc33b223f50",
+      "name": "Log onboarding started",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "From HR system": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New hire form": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Check duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check duplicate": {
+      "main": [
+        [
+          {
+            "node": "Collect form data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect form data": {
+      "main": [
+        [
+          {
+            "node": "Validate and plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and plan": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Insert employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log rejection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log rejection": {
+      "main": [
+        [
+          {
+            "node": "Stop with reason",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert employee": {
+      "main": [
+        [
+          {
+            "node": "Insert task plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert task plan": {
+      "main": [
+        [
+          {
+            "node": "Write welcome draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write welcome draft": {
+      "main": [
+        [
+          {
+            "node": "Collect draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect draft": {
+      "main": [
+        [
+          {
+            "node": "Check welcome draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check welcome draft": {
+      "main": [
+        [
+          {
+            "node": "HR approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HR approval": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini (welcome draft)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write welcome draft",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Record approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark sent back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record approval": {
+      "main": [
+        [
+          {
+            "node": "Send welcome email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send welcome email": {
+      "main": [
+        [
+          {
+            "node": "Reserve laptop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reserve laptop": {
+      "main": [
+        [
+          {
+            "node": "Plan account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan account": {
+      "main": [
+        [
+          {
+            "node": "Collect hand-off data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect hand-off data": {
+      "main": [
+        [
+          {
+            "node": "Build team messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build team messages": {
+      "main": [
+        [
+          {
+            "node": "Log onboarding started",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to #it",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to #facilities",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to #team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Engineering?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Jira tickets?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Engineering?": {
+      "main": [
+        [
+          {
+            "node": "GitHub org invite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Jira tickets?": {
+      "main": [
+        [
+          {
+            "node": "Jira ticket agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini (Jira agent)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Jira ticket agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira MCP": {
+      "ai_tool": [
+        [
+          {
+            "node": "Jira ticket agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jira ticket agent": {
+      "main": [
+        [
+          {
+            "node": "Log Jira result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": []
+}

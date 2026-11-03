@@ -1,0 +1,352 @@
+{
+  "name": "7 - BrewTec weekly answer quality check",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 7. Weekly answer quality check\nEvery Monday 07:00 it asks the assistant 10 fixed questions with known answers, scores each (right source, key fact, or correct hand-off), saves the result in quality_checks and posts a report to #hr-helpdesk with 5 real answers from last week for a human to check.\n\n**Setup**\n1. Config: #hr-helpdesk webhook. chat_url is the assistant inside n8n, keep it.\n2. Postgres credential on the three Postgres nodes.\n3. Run now once, then Publish. Settings > Error workflow: 6.\n4. One question every 15 seconds, to stay under the Gemini rate limit.",
+        "height": 400,
+        "width": 460,
+        "color": 4
+      },
+      "id": "30f017cc-80e3-4163-b3ee-5dcffd96c879",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "20782028-f0a9-4036-a622-1d80dfd3afb6",
+      "name": "Every Monday 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d04d50fb-b219-445a-a418-755a3773b07f",
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        560,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ab375b2b-d6f7-46cb-8647-f7f948860376",
+              "name": "chat_url",
+              "value": "http://localhost:5678/webhook/1ddcdf13-f58a-479a-9200-66b56dd65b09/chat",
+              "type": "string"
+            },
+            {
+              "id": "dd002125-b1b2-4da2-8538-21dcf2a29c36",
+              "name": "discord_hr_webhook",
+              "value": "https://discord.com/api/webhooks/PASTE-HR-HELPDESK",
+              "type": "string"
+            },
+            {
+              "id": "dfa85479-5829-432a-8253-be24eae30a5c",
+              "name": "pass_mark",
+              "value": "80",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9f67b406-d989-425c-97b5-e379bb8f787a",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Golden questions  (Workflow 7, JavaScript, Run Once for All Items)\n// Fixed test set for the weekly quality check. Each question has an expected source\n// (file name prefix) and key facts, or the expectation that the assistant hands off.\n// Change this list when the knowledge base changes.\nconst QUESTIONS = [\n  { id: 'Q01', question: 'How do I request vacation?', expect: 'answer', source: 'hr-leave', facts: ['personio'] },\n  { id: 'Q02', question: 'How many vacation days do full-time employees get per year?', expect: 'answer', source: 'hr-leave', facts: ['30'] },\n  { id: 'Q03', question: 'What happens if I am sick for more than six weeks?', expect: 'answer', source: 'hr-sickness', facts: ['krankengeld'] },\n  { id: 'Q04', question: 'How long must my break be after 6 hours of work?', expect: 'answer', source: 'hr-working-time', facts: ['30'] },\n  { id: 'Q05', question: 'How do I report a violation of the code of conduct?', expect: 'answer', source: 'hr-code-of-conduct', facts: ['speakup'] },\n  { id: 'Q06', question: 'How do I set up the VPN?', expect: 'answer', source: 'it-vpn', facts: ['globalprotect'] },\n  { id: 'Q07', question: 'When do I get my payslip?', expect: 'answer', source: 'finance-payroll', facts: ['25'] },\n  { id: 'Q08', question: 'Which online courses must I complete in my first week?', expect: 'answer', source: 'onboarding-training', facts: ['gdpr', 'datenschutz', 'security', 'sicherheit'] },\n  { id: 'Q09', question: 'Can I bring my dog to the office?', expect: 'handoff' },\n  { id: 'Q10', question: 'What will my salary be next year?', expect: 'handoff' },\n];\n\nconst run = String($execution.id);\nreturn QUESTIONS.map((q, i) => ({ json: {\n  ...q,\n  run_id: run,\n  sessionId: `qc-${run}-${i + 1}`,\n} }));\n"
+      },
+      "id": "7b96a9d5-42ac-4560-abc6-e4687ad91613",
+      "name": "Golden questions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.chat_url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'sendMessage', sessionId: $json.sessionId, chatInput: $json.question }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 15000
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "1c9f3145-3a54-4385-bb99-40078eabf2ae",
+      "name": "Ask the assistant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1232,
+        432
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Score answers  (Workflow 7, JavaScript, Run Once for All Items)\n// Compares each reply with its expectation. Pairs replies with questions by position.\nconst HANDOFF_START = 'i could not find a reliable answer';\nconst qs = $('Golden questions').all().map(i => i.json);\nconst rs = $input.all().map(i => i.json);\n\nconst results = qs.map((q, i) => {\n  const r = rs[i] || {};\n  const reply = String(r.output ?? r.text ?? r.reply ?? '').trim();\n  const low = reply.toLowerCase();\n  let passed = false;\n  let detail = '';\n  if (!reply) {\n    detail = 'no reply (' + String((r.error && (r.error.message || r.error)) || 'empty response').slice(0, 120) + ')';\n  } else if (q.expect === 'handoff') {\n    passed = low.startsWith(HANDOFF_START);\n    detail = passed ? 'handed off as expected' : 'answered although no document covers it';\n  } else if (low.startsWith(HANDOFF_START)) {\n    detail = 'handed off although the document exists';\n  } else if (!low.includes('[' + q.source)) {\n    const cited = (reply.match(/\\[[^\\]]+\\]/g) || []).join(' ') || 'none';\n    detail = `wrong or missing source, cited ${cited}`;\n  } else if (!(q.facts || []).some(f => low.includes(f))) {\n    detail = 'right source, key fact missing (' + q.facts.join(' or ') + ')';\n  } else {\n    passed = true;\n    detail = 'right source and key fact';\n  }\n  return { id: q.id, question: q.question, expected: q.expect === 'handoff' ? 'handoff' : q.source,\n    reply: reply.slice(0, 1000), passed, detail };\n});\n\nconst passedCount = results.filter(r => r.passed).length;\nreturn [{ json: {\n  total: results.length,\n  passed: passedCount,\n  score: Math.round(100 * passedCount / Math.max(results.length, 1)),\n  failures: results.filter(r => !r.passed),\n  results_json: JSON.stringify(results),\n} }];\n"
+      },
+      "id": "e8b9a16d-7dc4-41a3-b13a-860f12e52625",
+      "name": "Score answers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with ins as (\n  insert into quality_checks (run_at, question_id, question, expected, reply, passed, detail)\n  select now(), r->>'id', r->>'question', r->>'expected', r->>'reply', (r->>'passed')::boolean, r->>'detail'\n  from jsonb_array_elements($1::jsonb) r\n  returning passed\n)\nselect count(*)::int as saved, count(*) filter (where passed)::int as passed from ins;",
+        "options": {
+          "queryReplacement": "={{ [ $json.results_json ] }}"
+        }
+      },
+      "id": "e5b3b4a7-e889-471f-9bd2-bb3bc95ddf3d",
+      "name": "Save results",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1664,
+        432
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select left(user_message, 160) as question, left(reply, 260) as answer, sources\nfrom chat_messages\nwhere created_at > now() - interval '7 days'\n  and coalesce(session_id, '') not like 'qc-%'\n  and not blocked and not handoff\n  and coalesce(sources, '') not in ('', 'small talk', 'empty', 'too_long', 'off_topic', 'breaker',\n                                  'session_limit', 'busy')\n  and coalesce(sources, '') not like 'ai unavailable%'\n  -- personal onboarding answers are never shared for review\n  and coalesce(sources, '') not like '%onboarding status%'\n  and coalesce(reply, '') not like '[personal%'\norder by random()\nlimit 5;",
+        "options": {}
+      },
+      "id": "f417eba4-687d-41b5-abc6-57de949402fa",
+      "name": "Sample answers for review",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1888,
+        432
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build report  (Workflow 7, JavaScript, Run Once for All Items)\n// Weekly report for People Ops: automatic score, failed questions, and 5 real answers\n// from the past week for a human to check against the cited documents.\nconst s = $('Score answers').first().json;\nconst passMark = Number($('Config').first().json.pass_mark || 80);\nconst samples = $input.all().map(i => i.json).filter(r => r.question);\n\nconst lines = [];\nlines.push(`**Weekly answer quality check: ${s.score}% (${s.passed} of ${s.total})**`);\nlines.push(s.score >= passMark\n  ? `At or above the ${passMark}% pass mark.`\n  : `BELOW the ${passMark}% pass mark. Review the failures before employees rely on the assistant.`);\nif (s.failures.length) {\n  lines.push('Failed:');\n  for (const f of s.failures) lines.push(`- ${f.id} ${f.question} -> ${f.detail}`);\n}\nif (samples.length) {\n  lines.push('', 'Human review: check these real answers from the last 7 days against the cited documents:');\n  samples.forEach((r, i) => lines.push(`${i + 1}. Q: ${r.question}\\n   A: ${r.answer} (${r.sources || 'no source'})`));\n}\nlet msg = lines.join('\\n');\nif (msg.length > 1900) msg = msg.slice(0, 1897) + '...';\nreturn [{ json: { discord_message: msg, score: s.score, below_pass_mark: s.score < passMark } }];\n"
+      },
+      "id": "5699eba5-6884-4c6d-bfde-a22fe2fe5651",
+      "name": "Build report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2112,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').first().json.discord_hr_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.discord_message }) }}",
+        "options": {}
+      },
+      "id": "7291c6d8-2e8a-43d5-bf28-a8788f66feb7",
+      "name": "Post report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2320,
+        320
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into automation_log (workflow, step, status, detail)\nvalues ('wf7', 'quality_check', $1, $2)\nreturning id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Build report').first().json.below_pass_mark ? 'below_pass_mark' : 'ok', 'score ' + $('Build report').first().json.score + '%' ] }}"
+        }
+      },
+      "id": "9cf416de-b06c-4e3a-bef6-8a185857de34",
+      "name": "Log quality run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2320,
+        544
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Monday 07:00": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Golden questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Golden questions": {
+      "main": [
+        [
+          {
+            "node": "Ask the assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the assistant": {
+      "main": [
+        [
+          {
+            "node": "Score answers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score answers": {
+      "main": [
+        [
+          {
+            "node": "Save results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save results": {
+      "main": [
+        [
+          {
+            "node": "Sample answers for review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample answers for review": {
+      "main": [
+        [
+          {
+            "node": "Build report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build report": {
+      "main": [
+        [
+          {
+            "node": "Post report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log quality run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

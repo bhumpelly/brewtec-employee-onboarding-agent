@@ -1,0 +1,11 @@
+test_id,category,kind,question,expected_start,source,facts,match,german,repeat,active,note,session
+MT01,Multi-turn,answer,How far in advance must I request two weeks of leave?,,hr-leave,4 weeks|four weeks,,,,,Chat A turn 1,A
+MT02,Multi-turn,answer,Can I use the VPN on my private laptop?,,it-vpn,private|not,,,,,"Chat A turn 2, new topic, needs a new search",A
+MT03,Multi-turn,answer,Do I have to declare a gift from a supplier?,,hr-code-of-conduct,50,,,,,"Chat A turn 3, third topic",A
+MT04,Multi-turn,answer,How do I submit my travel expenses?,,finance-,,,,,,"Chat A turn 4, fourth topic",A
+MT05,Multi-turn,answer,Does BrewTec pay for the Deutschlandticket?,,facilities-parking,30,,,,,Chat B turn 1,B
+MT06,Multi-turn,answer,Can I park at the Koeln office?,,facilities-,,,,,,"Chat B turn 2, related topic, same department",B
+MT07,Multi-turn,answer,Can I work from Spain for two weeks?,,hr-working-time,germany|approval,,,,,"Chat B turn 3, switch to HR",B
+MT08,Multi-turn,handoff,Can I bring my dog to the office?,,,,,,,,"Chat B turn 4, not in the documents, must still hand off",B
+MT09,Multi-turn,german,Wie beantrage ich Urlaub?,,hr-leave,personio,,yes,,,Chat C turn 1 in German,C
+MT10,Multi-turn,german,Was mache ich bei einer Phishing-Mail?,,it-,,,yes,,,"Chat C turn 2 in German, new topic",C

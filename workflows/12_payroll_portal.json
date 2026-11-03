@@ -1,0 +1,750 @@
+{
+  "name": "12 - BrewTec Payroll Portal",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 12. Payroll portal\nOnly the payroll team. Lists every approved new hire with the form status and a masked IBAN. Open decrypts one record and writes who opened it to payroll_access_log. Mark as transferred records the hand-over to DATEV.\n\n**Setup**\n1. Create a SEPARATE Basic Auth credential (for example user payroll), not the HR login. Pick it on the three webhook nodes.\n2. Postgres credential on all six Postgres nodes.\n3. Publish. Settings > Error workflow: 6.\n\n**Protection**\nSeparate login from HR, record ids only in form posts (never in the address bar), a signed page token bound to the login (valid 2 hours), every view logged with the login name, NO execution data saved, no caching, no framing. In production: company SSO with a payroll security group and two-factor sign-in.",
+        "height": 560,
+        "width": 500,
+        "color": 4
+      },
+      "id": "0c562f5e-21f3-4e2c-ad4d-91c06b2c92ea",
+      "name": "Note: setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "path": "brewtec/payroll",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d479ecc1-564a-4f38-a990-a13c112e27ef",
+      "name": "Payroll list page",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        352,
+        80
+      ],
+      "webhookId": "9dc6fccf-efce-44b1-b12b-604c7600c17d"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- n8n shows webhook pages in a browser sandbox, so origin headers cannot prove where a form came from.\n-- Instead each page carries a token signed by the database. Forms send it back, and it is checked here.\nselect portal_token('payroll', basic_auth_user($1)) as page_token;",
+        "options": {
+          "queryReplacement": "={{ [ $json.headers.authorization || '' ] }}"
+        }
+      },
+      "id": "09fb3781-65d7-4354-a97f-5694a8872305",
+      "name": "Issue page token",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        560,
+        80
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select * from payroll_list();",
+        "options": {}
+      },
+      "id": "fd170988-39a9-479c-8222-b1049662cf96",
+      "name": "Load list",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        800,
+        80
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Render page  (Workflow 12, payroll portal, JavaScript, Run Once for All Items)\n// Two pages: the list (no decrypted values, masked IBAN only) and the detail page of one person\n// (decrypted, opened only by a button so the id is never in the address bar or browser history).\n// Every value is HTML-escaped. This workflow saves no execution data, so decrypted values are\n// never written to n8n's database.\nconst esc = v => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\nconst list = safe('Payroll list page');\n// Signed page token: from \"Issue page token\" on the list, or the token the Open button sent on a\n// record page. Every form sends it back (hidden field pt).\nconst pageToken = String((safe('Issue page token') || {}).page_token || ((safe('Open record') || {}).body || {}).pt || '');\nconst ptField = `<input type=\"hidden\" name=\"pt\" value=\"${esc(pageToken)}\">`;\nconst q = (list && list.query) || {};\nconst items = $input.all().map(i => i.json);\nconst v = items.length === 1 && items[0].v ? items[0].v : null;\nconst detail = v && v.found !== false ? v : null;\nconst notFound = !!(v && v.found === false);\n\nconst fmtIban = s => String(s || '').replace(/(.{4})/g, '$1 ').trim();\nconst fmtSv = s => { const v = String(s || ''); return v.length === 12 ? `${v.slice(0, 2)} ${v.slice(2, 8)} ${v.slice(8, 9)} ${v.slice(9)}` : v; };\n   // Dates and times are shown in Berlin time. n8n turns a database date into \"midnight Berlin\",\n   // which is 23:00 of the previous day in UTC, so cutting the UTC text would show the wrong day.\n   const berlin = (s, withTime) => {\n     if (!s) return '';\n     const str = String(s);\n     if (/^\\d{4}-\\d{2}-\\d{2}$/.test(str)) return str;\n     const d = new Date(str);\n     if (isNaN(d)) return str.slice(0, withTime ? 16 : 10);\n     const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit',\n       day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map(x => [x.type, x.value]));\n     return `${p.year}-${p.month}-${p.day}` + (withTime ? ` ${p.hour}:${p.minute}` : '');\n   };\n   const fmtDate = s => berlin(s, false);\n   const fmtTime = s => berlin(s, true);\n\nconst style = `:root{--paper:#eef0ee;--panel:#f8f9f8;--steel:#d5d9d6;--ink:#1c1f1e;--ink-soft:#59605d;--brass:#a8761c;--brass-ink:#fffaf0;--graphite:#232726;\n--ok:#2e7a4e;--ok-bg:#e3f1e8;--warn:#8a5d10;--warn-bg:#fbf1dc;--bad:#b5402f;--bad-bg:#f9e6e3;--mute-bg:#e3e6e4;color-scheme:light;\n--display:\"Archivo\",\"Arial Narrow\",Arial,sans-serif;--body:\"Source Sans 3\",\"Segoe UI\",system-ui,sans-serif;--mono:\"JetBrains Mono\",Consolas,monospace}\n@media (prefers-color-scheme:dark){:root{--paper:#141716;--panel:#1b1f1e;--steel:#2c3230;--ink:#e6e9e7;--ink-soft:#9ba39f;--brass:#d6a24a;--brass-ink:#1a1408;--graphite:#0d0f0e;\n--ok:#6cc28f;--ok-bg:#16291e;--warn:#e0b25c;--warn-bg:#2f2716;--bad:#e07a6a;--bad-bg:#331d1a;--mute-bg:#262b29;color-scheme:dark}}\n*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:16px/1.55 var(--body)}\nheader{background:var(--graphite);color:#e9ece9}header .in{max-width:1100px;margin:0 auto;padding:14px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}\n.logo{font:800 22px/1 var(--display);font-stretch:75%;letter-spacing:.02em}.logo small{font:500 12px/1 var(--mono);letter-spacing:.1em;color:#a9b0ad;text-transform:uppercase;margin-left:8px}\nheader a{color:#c3c9c6;font-size:14px;text-decoration:none}\nmain{max-width:1100px;margin:0 auto;padding:26px 16px 60px}\nh1{font:800 clamp(30px,4.4vw,44px)/1.05 var(--display);font-stretch:78%;margin:6px 0 10px}\n.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}\n.lead{color:var(--ink-soft);margin:0 0 18px;max-width:46em}\n.banner{padding:12px 16px;border-radius:6px;margin-bottom:16px;border:1px solid}.banner.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}.banner.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}\n.card{background:var(--panel);border:1px solid var(--steel);border-radius:6px;min-width:0}\n.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:820px}\nth{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);text-align:left;padding:10px 12px;border-bottom:1px solid var(--steel);background:var(--paper)}\ntd{padding:11px 12px;border-bottom:1px solid var(--steel);vertical-align:middle}tr:last-child td{border-bottom:0}\n.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}td.mono{white-space:nowrap}td:first-child{min-width:170px}.note{font-size:13px;color:var(--ink-soft)}\n.pill{display:inline-block;font:500 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;white-space:nowrap}\n.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.mute{background:var(--mute-bg);color:var(--ink-soft)}\nbutton{border:0;border-radius:4px;padding:8px 14px;font:600 14px var(--body);background:var(--brass);color:var(--brass-ink);cursor:pointer}\nbutton.line{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--steel)}\nform.inline{display:inline}\ndl{display:grid;grid-template-columns:220px 1fr;margin:0}dt,dd{padding:12px 18px;border-bottom:1px solid var(--steel);margin:0}dt{color:var(--ink-soft);font-size:14px}\ndd{font:500 17px var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}dl>:nth-last-child(-n+2){border-bottom:0}\n.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}\n.warnbox{background:var(--warn-bg);border:1px solid var(--warn);color:var(--ink);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:14px}\n@media (max-width:600px){dl{grid-template-columns:1fr}dt{border-bottom:0;padding-bottom:0}}`;\n\nfunction wrap(inner) {\n  return `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\"><meta name=\"referrer\" content=\"same-origin\"><title>BrewTec Payroll</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>${style}</style></head><body><header><div class=\"in\"><span class=\"logo\">BREWTEC <small>Payroll · restricted</small></span>\n<a href=\"/webhook/brewtec/payroll\">All employees</a></div></header><main>${inner}</main></body></html>`;\n}\n\nlet html;\nif (notFound) {\n  html = wrap('<div class=\"eyebrow\">Payroll</div><h1>No payroll details for this employee</h1><p class=\"lead\">The employee has not submitted the form yet, or the record was deleted.</p><a href=\"/webhook/brewtec/payroll\"><button class=\"line\" type=\"button\">Back to the list</button></a>');\n} else if (detail) {\n  const d = detail;\n  const exported = d.exported_at ? `<span class=\"pill ok\">Exported ${esc(fmtTime(d.exported_at))} by ${esc(d.exported_by)}</span>` : '<span class=\"pill warn\">Not exported yet</span>';\n  html = wrap(`<div class=\"eyebrow\">Payroll record · this view is logged</div><h1>${esc(d.name)}</h1>\n<p class=\"lead\">${esc(d.department)}, start ${esc(fmtDate(d.start_date))}${d.worker_id ? ', Workday worker ' + esc(d.worker_id) : ''}. Submitted by the employee on ${esc(fmtTime(d.submitted_at))}. ${exported}</p>\n<div class=\"warnbox\">Confidential. Do not copy these details into e-mail, chat or tickets. Transfer them only to the payroll system (DATEV).</div>\n<div class=\"card\"><dl>\n<dt>IBAN</dt><dd>${esc(fmtIban(d.iban))}</dd>\n<dt>Tax ID (Steuer-ID)</dt><dd>${esc(d.tax_id)}</dd>\n<dt>Tax class</dt><dd>${esc(d.tax_class)}</dd>\n<dt>Social security number</dt><dd>${esc(fmtSv(d.sv_number))}</dd>\n<dt>Health insurance</dt><dd>${esc(d.health_insurer)}</dd>\n</dl></div>\n<div class=\"actions\">\n<form method=\"post\" action=\"/webhook/brewtec/payroll/export\" class=\"inline\">${ptField}<input type=\"hidden\" name=\"employee_id\" value=\"${esc(d.employee_id)}\"><button type=\"submit\">Mark as transferred to DATEV</button></form>\n<a href=\"/webhook/brewtec/payroll\"><button class=\"line\" type=\"button\">Back to the list</button></a></div>`);\n} else {\n  const rows = items.filter(r => r && r.employee_id);\n  const pill = s => s === 'received' ? '<span class=\"pill ok\">Received</span>' : s === 'link sent' ? '<span class=\"pill warn\">Link sent</span>' : '<span class=\"pill mute\">Not sent yet</span>';\n  const banner = q.msg ? `<div class=\"banner ${q.ok === '1' ? 'ok' : 'bad'}\" role=\"status\">${esc(q.msg)}</div>` : '';\n  const open = r => r.pfb_status === 'received'\n    ? `<form method=\"post\" action=\"/webhook/brewtec/payroll/view\" class=\"inline\">${ptField}<input type=\"hidden\" name=\"employee_id\" value=\"${esc(r.employee_id)}\"><button type=\"submit\">Open</button></form>` : '';\n  const toDo = rows.filter(r => r.pfb_status === 'received' && !r.exported_at).length;\n  html = wrap(`<div class=\"eyebrow\">Payroll team only</div><h1>Employee payroll details</h1>\n<p class=\"lead\">${toDo} record(s) ready to transfer to DATEV. Bank, tax and social security details are stored encrypted and are decrypted only when you open a record. Every opening is logged with your login.</p>\n${banner}\n<div class=\"card\">${rows.length ? `<div class=\"scroll\"><table><thead><tr><th>Employee</th><th>Department</th><th>Start</th><th>Form</th><th>IBAN</th><th>Health insurance</th><th>DATEV</th><th></th></tr></thead><tbody>\n${rows.map(r => `<tr><td><strong>${esc(r.first_name)} ${esc(r.last_name)}</strong>${r.worker_id ? `<div class=\"note mono\">Worker ${esc(r.worker_id)}</div>` : ''}</td>\n<td>${esc(r.department)}</td><td class=\"mono\">${esc(fmtDate(r.start_date))}</td><td>${pill(r.pfb_status)}</td>\n<td class=\"mono\">${esc(r.iban_masked || '')}</td><td>${esc(r.health_insurer || '')}</td>\n<td>${r.exported_at ? `<span class=\"pill ok\">Transferred</span><div class=\"note\">${esc(fmtTime(r.exported_at))}</div>` : (r.pfb_status === 'received' ? '<span class=\"pill warn\">To do</span>' : '')}</td>\n<td>${open(r)}</td></tr>`).join('')}</tbody></table></div>` : '<p style=\"padding:20px;color:var(--ink-soft)\">No approved new hires yet.</p>'}</div>`);\n}\nreturn [{ json: { html } }];\n"
+      },
+      "id": "6021ccce-2ba3-4ce4-b947-62a91fcb9a67",
+      "name": "Render list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "975df900-cb44-42f0-90b1-655305fe75b1",
+      "name": "Send list",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1088,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "brewtec/payroll/view",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e8af3357-7f1d-4ec6-a488-4885cd74dc0e",
+      "name": "Open record",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        368,
+        384
+      ],
+      "webhookId": "7276bdfe-ca13-4be6-8c62-d3c5f25737e8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- n8n shows webhook pages in a browser sandbox, so origin headers cannot prove where a form came from.\n-- Instead each page carries a token signed by the database. Forms send it back, and it is checked here.\nselect portal_token_check('payroll', $1, 120) as pt;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.pt || '' ] }}"
+        }
+      },
+      "id": "8e7cd2ec-03c4-4217-b9fe-e316b3e16eee",
+      "name": "Check open token",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        384
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Check request  (Workflow 12, payroll portal, JavaScript, Run Once for All Items)\n// For \"Open\" and \"Mark exported\": page token check, a real employee id, and the name of the\n// logged-in payroll user for the access log (taken from the login, never the password).\n// The token is bound to the login that opened the page, so it only works for that payroll user.\n// Page token: every payroll portal page carries a token signed by the database (valid 2 hours).\n// \"Check page token\" verified it before this node. A page on another website cannot get one,\n// so it cannot make a logged-in browser submit forms here (cross-site request forgery).\n// n8n shows webhook pages in a browser sandbox, so browser origin headers cannot be used for this.\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\nfunction tokenProblem(pt, portal) {\n  if (pt && pt.ok === true) return '';\n  if (pt && pt.reason === 'expired') return `This page has expired. Reload the ${portal} and try again.`;\n  return `The request did not come from the ${portal}. Reload the ${portal} and try again.`;\n}\nfunction loginName(h) {\n  const m = /^Basic\\s+(.+)$/i.exec(String(h.authorization || ''));\n  if (!m) return 'unknown';\n  try {\n    const decoded = typeof Buffer !== 'undefined' ? Buffer.from(m[1], 'base64').toString('utf8') : atob(m[1]);\n    return (decoded.split(':')[0].replace(/[^A-Za-z0-9._@-]/g, '') || 'unknown').slice(0, 60);\n  } catch (e) { return 'unknown'; }\n}\nconst j = safe('Open record') || safe('Mark transferred') || $input.first().json || {};\nconst pt = ($input.first().json || {}).pt;\nconst h = j.headers || {};\nconst id = String((j.body || {}).employee_id ?? '').trim();\nlet message = tokenProblem(pt, 'payroll portal');\nif (!message && pt.actor !== loginName(h)) message = 'This page was opened with a different login. Reload the payroll portal and try again.';\nif (!message && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) message = 'Unknown employee.';\nreturn [{ json: { valid: message === '', message, employee_id: id, actor: 'payroll:' + loginName(h) } }];\n"
+      },
+      "id": "69c0c3b6-03f0-448e-b2ef-36617e6a9eea",
+      "name": "Check open request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "acdea351-1f5f-412d-8424-523af0e2a37e",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "482d4d4a-8ef7-42a6-a171-f7d0fa95b5f3",
+      "name": "Open allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Decrypts one record and writes the access to payroll_access_log\nselect payroll_view($1::uuid, $2) as v;",
+        "options": {
+          "queryReplacement": "={{ [ $json.employee_id, $json.actor ] }}"
+        }
+      },
+      "id": "5ca38cb5-52cf-4a73-acd7-dc155b1144c4",
+      "name": "Decrypt and log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1088,
+        304
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Render page  (Workflow 12, payroll portal, JavaScript, Run Once for All Items)\n// Two pages: the list (no decrypted values, masked IBAN only) and the detail page of one person\n// (decrypted, opened only by a button so the id is never in the address bar or browser history).\n// Every value is HTML-escaped. This workflow saves no execution data, so decrypted values are\n// never written to n8n's database.\nconst esc = v => String(v ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\nconst list = safe('Payroll list page');\n// Signed page token: from \"Issue page token\" on the list, or the token the Open button sent on a\n// record page. Every form sends it back (hidden field pt).\nconst pageToken = String((safe('Issue page token') || {}).page_token || ((safe('Open record') || {}).body || {}).pt || '');\nconst ptField = `<input type=\"hidden\" name=\"pt\" value=\"${esc(pageToken)}\">`;\nconst q = (list && list.query) || {};\nconst items = $input.all().map(i => i.json);\nconst v = items.length === 1 && items[0].v ? items[0].v : null;\nconst detail = v && v.found !== false ? v : null;\nconst notFound = !!(v && v.found === false);\n\nconst fmtIban = s => String(s || '').replace(/(.{4})/g, '$1 ').trim();\nconst fmtSv = s => { const v = String(s || ''); return v.length === 12 ? `${v.slice(0, 2)} ${v.slice(2, 8)} ${v.slice(8, 9)} ${v.slice(9)}` : v; };\n   // Dates and times are shown in Berlin time. n8n turns a database date into \"midnight Berlin\",\n   // which is 23:00 of the previous day in UTC, so cutting the UTC text would show the wrong day.\n   const berlin = (s, withTime) => {\n     if (!s) return '';\n     const str = String(s);\n     if (/^\\d{4}-\\d{2}-\\d{2}$/.test(str)) return str;\n     const d = new Date(str);\n     if (isNaN(d)) return str.slice(0, withTime ? 16 : 10);\n     const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit',\n       day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map(x => [x.type, x.value]));\n     return `${p.year}-${p.month}-${p.day}` + (withTime ? ` ${p.hour}:${p.minute}` : '');\n   };\n   const fmtDate = s => berlin(s, false);\n   const fmtTime = s => berlin(s, true);\n\nconst style = `:root{--paper:#eef0ee;--panel:#f8f9f8;--steel:#d5d9d6;--ink:#1c1f1e;--ink-soft:#59605d;--brass:#a8761c;--brass-ink:#fffaf0;--graphite:#232726;\n--ok:#2e7a4e;--ok-bg:#e3f1e8;--warn:#8a5d10;--warn-bg:#fbf1dc;--bad:#b5402f;--bad-bg:#f9e6e3;--mute-bg:#e3e6e4;color-scheme:light;\n--display:\"Archivo\",\"Arial Narrow\",Arial,sans-serif;--body:\"Source Sans 3\",\"Segoe UI\",system-ui,sans-serif;--mono:\"JetBrains Mono\",Consolas,monospace}\n@media (prefers-color-scheme:dark){:root{--paper:#141716;--panel:#1b1f1e;--steel:#2c3230;--ink:#e6e9e7;--ink-soft:#9ba39f;--brass:#d6a24a;--brass-ink:#1a1408;--graphite:#0d0f0e;\n--ok:#6cc28f;--ok-bg:#16291e;--warn:#e0b25c;--warn-bg:#2f2716;--bad:#e07a6a;--bad-bg:#331d1a;--mute-bg:#262b29;color-scheme:dark}}\n*{box-sizing:border-box}html,body{margin:0}body{background:var(--paper);color:var(--ink);font:16px/1.55 var(--body)}\nheader{background:var(--graphite);color:#e9ece9}header .in{max-width:1100px;margin:0 auto;padding:14px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}\n.logo{font:800 22px/1 var(--display);font-stretch:75%;letter-spacing:.02em}.logo small{font:500 12px/1 var(--mono);letter-spacing:.1em;color:#a9b0ad;text-transform:uppercase;margin-left:8px}\nheader a{color:#c3c9c6;font-size:14px;text-decoration:none}\nmain{max-width:1100px;margin:0 auto;padding:26px 16px 60px}\nh1{font:800 clamp(30px,4.4vw,44px)/1.05 var(--display);font-stretch:78%;margin:6px 0 10px}\n.eyebrow{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}\n.lead{color:var(--ink-soft);margin:0 0 18px;max-width:46em}\n.banner{padding:12px 16px;border-radius:6px;margin-bottom:16px;border:1px solid}.banner.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}.banner.bad{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}\n.card{background:var(--panel);border:1px solid var(--steel);border-radius:6px;min-width:0}\n.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:820px}\nth{font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);text-align:left;padding:10px 12px;border-bottom:1px solid var(--steel);background:var(--paper)}\ntd{padding:11px 12px;border-bottom:1px solid var(--steel);vertical-align:middle}tr:last-child td{border-bottom:0}\n.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}td.mono{white-space:nowrap}td:first-child{min-width:170px}.note{font-size:13px;color:var(--ink-soft)}\n.pill{display:inline-block;font:500 11.5px/1 var(--mono);padding:5px 8px;border-radius:999px;white-space:nowrap}\n.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.mute{background:var(--mute-bg);color:var(--ink-soft)}\nbutton{border:0;border-radius:4px;padding:8px 14px;font:600 14px var(--body);background:var(--brass);color:var(--brass-ink);cursor:pointer}\nbutton.line{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--steel)}\nform.inline{display:inline}\ndl{display:grid;grid-template-columns:220px 1fr;margin:0}dt,dd{padding:12px 18px;border-bottom:1px solid var(--steel);margin:0}dt{color:var(--ink-soft);font-size:14px}\ndd{font:500 17px var(--mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}dl>:nth-last-child(-n+2){border-bottom:0}\n.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}\n.warnbox{background:var(--warn-bg);border:1px solid var(--warn);color:var(--ink);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:14px}\n@media (max-width:600px){dl{grid-template-columns:1fr}dt{border-bottom:0;padding-bottom:0}}`;\n\nfunction wrap(inner) {\n  return `<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta name=\"robots\" content=\"noindex\"><meta name=\"referrer\" content=\"same-origin\"><title>BrewTec Payroll</title>\n<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"><link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n<link href=\"https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap\" rel=\"stylesheet\">\n<style>${style}</style></head><body><header><div class=\"in\"><span class=\"logo\">BREWTEC <small>Payroll · restricted</small></span>\n<a href=\"/webhook/brewtec/payroll\">All employees</a></div></header><main>${inner}</main></body></html>`;\n}\n\nlet html;\nif (notFound) {\n  html = wrap('<div class=\"eyebrow\">Payroll</div><h1>No  payroll details for this employee</h1><p class=\"lead\">The employee has not submitted the form yet, or the record was deleted.</p><a href=\"/webhook/brewtec/payroll\"><button class=\"line\" type=\"button\">Back to the list</button></a>');\n} else if (detail) {\n  const d = detail;\n  const exported = d.exported_at ? `<span class=\"pill ok\">Exported ${esc(fmtTime(d.exported_at))} by ${esc(d.exported_by)}</span>` : '<span class=\"pill warn\">Not exported yet</span>';\n  html = wrap(`<div class=\"eyebrow\">Payroll record · this view is logged</div><h1>${esc(d.name)}</h1>\n<p class=\"lead\">${esc(d.department)}, start ${esc(fmtDate(d.start_date))}${d.worker_id ? ', Workday worker ' + esc(d.worker_id) : ''}. Submitted by the employee on ${esc(fmtTime(d.submitted_at))}. ${exported}</p>\n<div class=\"warnbox\">Confidential. Do not copy these details into e-mail, chat or tickets. Transfer them only to the payroll system (DATEV).</div>\n<div class=\"card\"><dl>\n<dt>IBAN</dt><dd>${esc(fmtIban(d.iban))}</dd>\n<dt>Tax ID (Steuer-ID)</dt><dd>${esc(d.tax_id)}</dd>\n<dt>Tax class</dt><dd>${esc(d.tax_class)}</dd>\n<dt>Social security number</dt><dd>${esc(fmtSv(d.sv_number))}</dd>\n<dt>Health insurance</dt><dd>${esc(d.health_insurer)}</dd>\n</dl></div>\n<div class=\"actions\">\n<form method=\"post\" action=\"/webhook/brewtec/payroll/export\" class=\"inline\">${ptField}<input type=\"hidden\" name=\"employee_id\" value=\"${esc(d.employee_id)}\"><button type=\"submit\">Mark as transferred to DATEV</button></form>\n<a href=\"/webhook/brewtec/payroll\"><button class=\"line\" type=\"button\">Back to the list</button></a></div>`);\n} else {\n  const rows = items.filter(r => r && r.employee_id);\n  const pill = s => s === 'received' ? '<span class=\"pill ok\">Received</span>' : s === 'link sent' ? '<span class=\"pill warn\">Link sent</span>' : '<span class=\"pill mute\">Not sent yet</span>';\n  const banner = q.msg ? `<div class=\"banner ${q.ok === '1' ? 'ok' : 'bad'}\" role=\"status\">${esc(q.msg)}</div>` : '';\n  const open = r => r.pfb_status === 'received'\n    ? `<form method=\"post\" action=\"/webhook/brewtec/payroll/view\" class=\"inline\">${ptField}<input type=\"hidden\" name=\"employee_id\" value=\"${esc(r.employee_id)}\"><button type=\"submit\">Open</button></form>` : '';\n  const toDo = rows.filter(r => r.pfb_status === 'received' && !r.exported_at).length;\n  html = wrap(`<div class=\"eyebrow\">Payroll team only</div><h1>Employee  payroll details</h1>\n<p class=\"lead\">${toDo} record(s) ready to transfer to DATEV. Bank, tax and social security details are stored encrypted and are decrypted only when you open a record. Every opening is logged with your login.</p>\n${banner}\n<div class=\"card\">${rows.length ? `<div class=\"scroll\"><table><thead><tr><th>Employee</th><th>Department</th><th>Start</th><th>Form</th><th>IBAN</th><th>Health insurance</th><th>DATEV</th><th></th></tr></thead><tbody>\n${rows.map(r => `<tr><td><strong>${esc(r.first_name)} ${esc(r.last_name)}</strong>${r.worker_id ? `<div class=\"note mono\">Worker ${esc(r.worker_id)}</div>` : ''}</td>\n<td>${esc(r.department)}</td><td class=\"mono\">${esc(fmtDate(r.start_date))}</td><td>${pill(r.pfb_status)}</td>\n<td class=\"mono\">${esc(r.iban_masked || '')}</td><td>${esc(r.health_insurer || '')}</td>\n<td>${r.exported_at ? `<span class=\"pill ok\">Transferred</span><div class=\"note\">${esc(fmtTime(r.exported_at))}</div>` : (r.pfb_status === 'received' ? '<span class=\"pill warn\">To do</span>' : '')}</td>\n<td>${open(r)}</td></tr>`).join('')}</tbody></table></div>` : '<p style=\"padding:20px;color:var(--ink-soft)\">No approved new hires yet.</p>'}</div>`);\n}\nreturn [{ json: { html } }];\n"
+      },
+      "id": "85f963e3-edde-4552-8ac7-0fbf8ff5145c",
+      "name": "Render record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "3f9b3417-c98d-4da9-8891-716874b557c6",
+      "name": "Send record",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1536,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "brewtec/payroll/export",
+        "authentication": "basicAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b369e0fe-253b-4277-9cf6-d11c9a3e3fee",
+      "name": "Mark transferred",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        352,
+        704
+      ],
+      "webhookId": "1f11e251-8e77-47ce-85f7-cb0864891299"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- n8n shows webhook pages in a browser sandbox, so origin headers cannot prove where a form came from.\n-- Instead each page carries a token signed by the database. Forms send it back, and it is checked here.\nselect portal_token_check('payroll', $1, 120) as pt;",
+        "options": {
+          "queryReplacement": "={{ [ $json.body.pt || '' ] }}"
+        }
+      },
+      "id": "579e7bbc-d0de-4a76-b113-5dd6830e9ebc",
+      "name": "Check export token",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        704
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Check request  (Workflow 12, payroll portal, JavaScript, Run Once for All Items)\n// For \"Open\" and \"Mark exported\": page token check, a real employee id, and the name of the\n// logged-in payroll user for the access log (taken from the login, never the password).\n// The token is bound to the login that opened the page, so it only works for that payroll user.\n// Page token: every payroll portal page carries a token signed by the database (valid 2 hours).\n// \"Check page token\" verified it before this node. A page on another website cannot get one,\n// so it cannot make a logged-in browser submit forms here (cross-site request forgery).\n// n8n shows webhook pages in a browser sandbox, so browser origin headers cannot be used for this.\nconst safe = name => { try { return $(name).first().json; } catch (e) { return null; } };\nfunction tokenProblem(pt, portal) {\n  if (pt && pt.ok === true) return '';\n  if (pt && pt.reason === 'expired') return `This page has expired. Reload the ${portal} and try again.`;\n  return `The request did not come from the ${portal}. Reload the ${portal} and try again.`;\n}\nfunction loginName(h) {\n  const m = /^Basic\\s+(.+)$/i.exec(String(h.authorization || ''));\n  if (!m) return 'unknown';\n  try {\n    const decoded = typeof Buffer !== 'undefined' ? Buffer.from(m[1], 'base64').toString('utf8') : atob(m[1]);\n    return (decoded.split(':')[0].replace(/[^A-Za-z0-9._@-]/g, '') || 'unknown').slice(0, 60);\n  } catch (e) { return 'unknown'; }\n}\nconst j = safe('Open record') || safe('Mark transferred') || $input.first().json || {};\nconst pt = ($input.first().json || {}).pt;\nconst h = j.headers || {};\nconst id = String((j.body || {}).employee_id ?? '').trim();\nlet message = tokenProblem(pt, 'payroll portal');\nif (!message && pt.actor !== loginName(h)) message = 'This page was opened with a different login. Reload the payroll portal and try again.';\nif (!message && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) message = 'Unknown employee.';\nreturn [{ json: { valid: message === '', message, employee_id: id, actor: 'payroll:' + loginName(h) } }];\n"
+      },
+      "id": "714f0284-796b-4c42-80cf-0738d9569ded",
+      "name": "Check export request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dba39df0-9e4f-4e81-9ed5-bd9e7457357c",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "1a599e4d-6026-4283-8849-d8809fde5f24",
+      "name": "Export allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select payroll_mark_exported($1::uuid, $2) as r;",
+        "options": {
+          "queryReplacement": "={{ [ $json.employee_id, $json.actor ] }}"
+        }
+      },
+      "id": "91552554-ff02-4678-8833-170b33920247",
+      "name": "Save transfer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1088,
+        624
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "={{ (String($('Mark transferred').first().json.headers['x-forwarded-proto'] || 'http').split(',')[0].trim() + '://' + String($('Mark transferred').first().json.headers['x-forwarded-host'] || $('Mark transferred').first().json.headers.host).split(',')[0].trim()) + '/webhook/brewtec/payroll?ok=' + ($json.r?.ok === true ? '1' : '0') + '&msg=' + encodeURIComponent($json.r?.ok ? 'Marked as transferred to DATEV.' : 'Nothing changed: no form for this employee.') }}",
+        "options": {
+          "responseCode": 303
+        }
+      },
+      "id": "39145150-eab1-4b1a-85ac-bf1123537096",
+      "name": "Back after transfer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "={{ (String($('Mark transferred').first().json.headers['x-forwarded-proto'] || 'http').split(',')[0].trim() + '://' + String($('Mark transferred').first().json.headers['x-forwarded-host'] || $('Mark transferred').first().json.headers.host).split(',')[0].trim()) + '/webhook/brewtec/payroll?ok=' + (false ? '1' : '0') + '&msg=' + encodeURIComponent($json.message) }}",
+        "options": {
+          "responseCode": 303
+        }
+      },
+      "id": "490be902-45de-4a08-b282-7178c2305d81",
+      "name": "Back with request error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1088,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "={{ (String($('Open record').first().json.headers['x-forwarded-proto'] || 'http').split(',')[0].trim() + '://' + String($('Open record').first().json.headers['x-forwarded-host'] || $('Open record').first().json.headers.host).split(',')[0].trim()) + '/webhook/brewtec/payroll?ok=' + (false ? '1' : '0') + '&msg=' + encodeURIComponent($json.message) }}",
+        "options": {
+          "responseCode": 303
+        }
+      },
+      "id": "6c23f619-46e3-4f60-9d43-2f692c7150cb",
+      "name": "Back with open error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1088,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Payroll portal unavailable</title><style>body{margin:0;font:17px/1.6 'Segoe UI',system-ui,sans-serif;background:#eef0ee;color:#1c1f1e}@media (prefers-color-scheme:dark){body{background:#141716;color:#e6e9e7}}main{max-width:560px;margin:12vh auto;padding:0 16px}h1{font-size:30px;margin:0 0 10px}a{color:#a8761c}</style></head><body><main><h1>The payroll portal is temporarily unavailable</h1><p>Nothing was changed. The agent team has been alerted automatically. Please try again in a few minutes.</p><p><a href=\"/webhook/brewtec/payroll\">Try again</a></p></main></body></html>",
+        "options": {
+          "responseCode": 503,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "same-origin"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              },
+              {
+                "name": "Content-Security-Policy",
+                "value": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+              }
+            ]
+          }
+        }
+      },
+      "id": "1d911aa2-b4ef-4696-935f-8c00f483ad65",
+      "name": "Send error page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "errorMessage": "Payroll portal: Database step failed. The user got a friendly page. No personal values are in this alert."
+      },
+      "id": "f4c9985a-43f7-4bba-947d-269212a66240",
+      "name": "Alert the agent team",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        800
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Payroll list page": {
+      "main": [
+        [
+          {
+            "node": "Issue page token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Issue page token": {
+      "main": [
+        [
+          {
+            "node": "Load list",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load list": {
+      "main": [
+        [
+          {
+            "node": "Render list",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render list": {
+      "main": [
+        [
+          {
+            "node": "Send list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open record": {
+      "main": [
+        [
+          {
+            "node": "Check open token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check open token": {
+      "main": [
+        [
+          {
+            "node": "Check open request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check open request": {
+      "main": [
+        [
+          {
+            "node": "Open allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decrypt and log": {
+      "main": [
+        [
+          {
+            "node": "Render record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render record": {
+      "main": [
+        [
+          {
+            "node": "Send record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark transferred": {
+      "main": [
+        [
+          {
+            "node": "Check export token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check export token": {
+      "main": [
+        [
+          {
+            "node": "Check export request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check export request": {
+      "main": [
+        [
+          {
+            "node": "Export allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save transfer": {
+      "main": [
+        [
+          {
+            "node": "Back after transfer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send error page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send error page": {
+      "main": [
+        [
+          {
+            "node": "Alert the agent team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open allowed?": {
+      "main": [
+        [
+          {
+            "node": "Decrypt and log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Back with open error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export allowed?": {
+      "main": [
+        [
+          {
+            "node": "Save transfer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Back with request error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": []
+}
